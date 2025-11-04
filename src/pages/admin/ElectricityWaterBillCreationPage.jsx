@@ -14,6 +14,7 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [filterType, setFilterType] = useState('all'); // 'all', 'electricity', 'water'
+  const [filterFloor, setFilterFloor] = useState('all'); // 'all', '1', '2', '3', '4', '5'
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -88,8 +89,27 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
     });
   };
 
+  // Extract floor from roomId (P101 -> 1, P201 -> 2)
+  const getFloorFromRoomId = (roomId) => {
+    if (!roomId || !roomId.startsWith('P')) return null;
+    const floor = parseInt(roomId.charAt(1));
+    return isNaN(floor) ? null : floor.toString();
+  };
+
+  // Get unique floors from processed data
+  const getFloorOptions = () => {
+    const floors = new Set();
+    processedData.forEach(item => {
+      const floor = getFloorFromRoomId(item.roomId);
+      if (floor) floors.add(floor);
+    });
+    return Array.from(floors).sort((a, b) => parseInt(a) - parseInt(b));
+  };
+
   const filteredData = processedData.filter(item => {
-    return filterType === 'all' || item.type === filterType;
+    const typeMatch = filterType === 'all' || item.type === filterType;
+    const floorMatch = filterFloor === 'all' || getFloorFromRoomId(item.roomId) === filterFloor;
+    return typeMatch && floorMatch;
   });
   
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -101,6 +121,11 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
   
   const handleTypeFilterChange = (type) => {
     setFilterType(type);
+    setCurrentPage(1);
+  };
+
+  const handleFloorFilterChange = (floor) => {
+    setFilterFloor(floor);
     setCurrentPage(1);
   };
 
@@ -366,6 +391,18 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
                       <option value="all">Tất cả loại</option>
                       <option value="electricity">Hóa đơn điện</option>
                       <option value="water">Hóa đơn nước</option>
+                    </Select>
+                  </div>
+                  <div className="w-48">
+                    <Select
+                      value={filterFloor}
+                      onChange={(e) => handleFloorFilterChange(e.target.value)}
+                      className="w-full"
+                    >
+                      <option value="all">Tất cả tầng</option>
+                      {getFloorOptions().map(floor => (
+                        <option key={floor} value={floor}>Tầng {floor}</option>
+                      ))}
                     </Select>
                   </div>
                 </div>
