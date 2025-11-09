@@ -49,6 +49,7 @@ const RoomRegistrationPage = () => {
       />
     );
   }
+
   if (currentStep === 'room-detail') {
     return (
       <RoomDetail
@@ -77,7 +78,7 @@ const RoomRegistrationPage = () => {
 
 // Personal Information Form Component
 const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) => {
-  const { showSuccess, showError, NotificationComponent } = useNotification();
+  const { showSuccess, showError } = useNotification();
 
   const [formData, setFormData] = useState({
     nation: 'Việt Nam', // Mặc định Việt Nam, không cho thay đổi
@@ -266,7 +267,7 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
 
   const [uploadedPaths, setUploadedPaths] = useState({
     cccdPath: null,
-    avatarPath: null
+    avatarPath: null,
   });
 
   const handleSubmit = async (e) => {
@@ -274,43 +275,54 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
 
     if (!validateForm()) return;
 
-    if (validateForm()) {
-      setIsLoading(true);
-      const formDataCCCD = new FormData();
-      formDataCCCD.append("CCCD", files.cccdFront); // Gửi file thật, không chỉ .name
-      const formDataAvatar = new FormData();
-      formDataAvatar.append("Avatar", files.avatar);
-      try {
-        const cccdResponse = await authApi.checkCCCD(formDataCCCD);
-        const avatarResponse = await authApi.checkAvatar(formDataAvatar);
-        // Prepare registration data
-        const genderMap = { Nam: "male", Nữ: "female" };
+    setIsLoading(true);
 
-        const registrationData = {
-          ...formData,
-          gender: genderMap[formData.gender] || formData.gender,
-          roomSlotId: selectedRoomSlot.slotId,
-          endDate: selectedRoomSlot.endDate,
-          frontIdentificationImage: cccdResponse.data.cccdPath,
-          avatar: avatarResponse.data.avatarPath
-        };
-        console.log("registration data", registrationData)
-        const response = await authApi.register(registrationData);
-        if (response.success === true) {
-          setTimeout(() => {
-            setIsLoading(false);
-            showSuccess('Đăng ký phòng thành công! Hồ sơ của bạn đang được xét duyệt.');
-            setTimeout(() => {
-              window.location.href = '/login';
-            }, 2000);
-          }, 1500);
-        }
-      } catch (err) {
-        console.log(err.response.data.message)
-        showError(err.response.data.message);
+    const formDataCCCD = new FormData();
+    formDataCCCD.append("CCCD", files.cccdFront);
+    const formDataAvatar = new FormData();
+    formDataAvatar.append("Avatar", files.avatar);
+
+    try {
+      let cccdPath = uploadedPaths.cccdPath;
+      let avatarPath = uploadedPaths.avatarPath;
+      if (!cccdPath || !avatarPath) {
+        const [cccdResponse, avatarResponse] = await Promise.all([
+          authAPI.checkCCCD(formDataCCCD),
+          authAPI.checkAvatar(formDataAvatar),
+        ]);
+        cccdPath = cccdResponse.data.cccdPath;
+        avatarPath = avatarResponse.data.avatarPath;
+        setUploadedPaths({
+          cccdPath,
+          avatarPath,
+        });
       }
+      const genderMap = { Nam: "male", Nữ: "female" };
+      const registrationData = {
+        ...formData,
+        gender: genderMap[formData.gender] || formData.gender,
+        roomSlotId: selectedRoomSlot.slotId,
+        duration: selectedRoomSlot.duration,
+        frontIdentificationImage: cccdPath,
+        avatar: avatarPath,
+      };
+
+      const response = await authAPI.register(registrationData);
+
+      if (response.success === true) {
+        showSuccess("Đăng ký phòng thành công! Hồ sơ của bạn đang được xét duyệt.");
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 2000);
+      }
+    } catch (err) {
+      console.error(err);
+      showError(err?.response?.data?.message || "Đăng ký thất bại. Vui lòng thử lại!");
+    } finally {
+      setIsLoading(false);
     }
   };
+
 
 
   // Image preprocessing functions
@@ -987,7 +999,6 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
 
   return (
     <>
-      <NotificationComponent />
       <ImageEditorModal
         isOpen={!!editingImage}
         onClose={handleImageEditCancel}

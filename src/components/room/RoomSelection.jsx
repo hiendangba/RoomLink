@@ -62,7 +62,7 @@ const RoomSelection = ({ onRoomSelected, onCancel }) => {
     try {
       setIsLoading(true);
       
-      const res = await buildingApi.getBuildings({ genderRestriction, roomTypeId });
+      const res = await buildingAPI.getBuildings({ genderRestriction, roomTypeId });
 
       if (res.success) setBuildings(res.data);
     } catch (error) {
