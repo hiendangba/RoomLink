@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Pagination from "../ui/Pagination";
 import Button from "../ui/Button";
-import roomApi from "../../api/roomApi";
-import buildingApi from "../../api/buildingApi";
+import { roomAPI, buildingAPI } from "../../api";
 import RoomList from "./RoomList";
 import { useNotification } from '../../components/ui/Notification';
 
@@ -18,6 +17,7 @@ const RoomSelection = ({ onRoomSelected, onCancel }) => {
   const [rooms, setRooms] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
   const [buildings, setBuildings] = useState([]);
+
   const [paginatedRooms, setPaginatedRooms] = useState([]);
   const [selectedFloor, setSelectedFloor] = useState(null);
   const [floors, setFloors] = useState([]);
@@ -51,7 +51,7 @@ const RoomSelection = ({ onRoomSelected, onCancel }) => {
 
   const fetchRoomTypes = async () => {
     try {
-      const res = await roomApi.getRoomType();
+      const res = await roomAPI.getRoomType();
       if (res.success) setRoomTypes(res.data);
     } catch (error) {
       showError(error.message || "Đã xảy ra lỗi!");
@@ -61,7 +61,9 @@ const RoomSelection = ({ onRoomSelected, onCancel }) => {
   const fetchBuildings = async (genderRestriction, roomTypeId) => {
     try {
       setIsLoading(true);
+      
       const res = await buildingApi.getBuildings({ genderRestriction, roomTypeId });
+
       if (res.success) setBuildings(res.data);
     } catch (error) {
       showError(error.message || "Đã xảy ra lỗi!");
@@ -73,7 +75,7 @@ const RoomSelection = ({ onRoomSelected, onCancel }) => {
   const fetchRooms = async (roomTypeId, buildingId) => {
     try {
       setIsLoading(true);
-      const res = await roomApi.getRoom({ roomTypeId, buildingId });
+      const res = await roomAPI.getRoom({ roomTypeId, buildingId });
       if (res.success) {
         setRooms(res.data);
         const uniqueFloors = [...new Set(res.data.map(r => r.floor_number))].sort((a, b) => a - b);
@@ -117,7 +119,6 @@ const RoomSelection = ({ onRoomSelected, onCancel }) => {
           <h1 className="text-3xl font-bold text-gray-900">Chọn phòng ở KTX</h1>
           <p className="text-gray-600">Chọn giới tính, loại phòng và tòa bạn muốn ở</p>
         </div>
-
         <div className="mb-4">
           <button
             onClick={onCancel}

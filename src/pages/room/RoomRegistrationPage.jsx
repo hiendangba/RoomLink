@@ -5,11 +5,11 @@ import Select from '../../components/ui/Select';
 import FileUploadButton from '../../components/ui/FileUploadButton';
 import PageLayout from '../../components/ui/PageLayout';
 import RoomSelection from '../../components/room/RoomSelection';
-import { useNotification } from '../../components/ui/Notification';
+import { useNotification } from '../../contexts/NotificationContext';
 import ImageEditorModal from '../../components/modal/ImageEditorModal';
 import RoomDetail from "../../components/room/RoomDetail"
 import jsQR from 'jsqr';
-import authApi from "../../api/authApi"
+import { authAPI } from "../../api"
 const RoomRegistrationPage = () => {
   const [currentStep, setCurrentStep] = useState('room-selection'); // room-selection, personal-info
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -274,53 +274,41 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
 
     if (!validateForm()) return;
 
-    setIsLoading(true);
-    try {
-      const promises = [];
+    if (validateForm()) {
+      setIsLoading(true);
+      const formDataCCCD = new FormData();
+      formDataCCCD.append("CCCD", files.cccdFront); // Gửi file thật, không chỉ .name
+      const formDataAvatar = new FormData();
+      formDataAvatar.append("Avatar", files.avatar);
+      try {
+        const cccdResponse = await authApi.checkCCCD(formDataCCCD);
+        const avatarResponse = await authApi.checkAvatar(formDataAvatar);
+        // Prepare registration data
+        const genderMap = { Nam: "male", Nữ: "female" };
 
-      if (!uploadedPaths.cccdPath) {
-        const formDataCCCD = new FormData();
-        formDataCCCD.append("CCCD", files.cccdFront);
-        promises.push(authApi.checkCCCD(formDataCCCD).then(res => ({
-          type: "cccd",
-          path: res.data.cccdPath
-        })));
+        const registrationData = {
+          ...formData,
+          gender: genderMap[formData.gender] || formData.gender,
+          roomSlotId: selectedRoomSlot.slotId,
+          endDate: selectedRoomSlot.endDate,
+          frontIdentificationImage: cccdResponse.data.cccdPath,
+          avatar: avatarResponse.data.avatarPath
+        };
+        console.log("registration data", registrationData)
+        const response = await authApi.register(registrationData);
+        if (response.success === true) {
+          setTimeout(() => {
+            setIsLoading(false);
+            showSuccess('Đăng ký phòng thành công! Hồ sơ của bạn đang được xét duyệt.');
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 2000);
+          }, 1500);
+        }
+      } catch (err) {
+        console.log(err.response.data.message)
+        showError(err.response.data.message);
       }
-      if (!uploadedPaths.avatarPath) {
-        const formDataAvatar = new FormData();
-        formDataAvatar.append("Avatar", files.avatar);
-        promises.push(authApi.checkAvatar(formDataAvatar).then(res => ({
-          type: "avatar",
-          path: res.data.avatarPath
-        })));
-      }
-      const results = await Promise.all(promises);
-      const newUploadedPaths = { ...uploadedPaths };
-      results.forEach(r => {
-        if (r.type === "cccd") newUploadedPaths.cccdPath = r.path;
-        if (r.type === "avatar") newUploadedPaths.avatarPath = r.path;
-      });
-      setUploadedPaths(newUploadedPaths);
-      const genderMap = { Nam: "male", Nữ: "female" };
-      const registrationData = {
-        ...formData,
-        gender: genderMap[formData.gender] || formData.gender,
-        roomSlotId: selectedRoomSlot.slotId,
-        duration: selectedRoomSlot.duration,
-        frontIdentificationImage: newUploadedPaths.cccdPath,
-        avatar: newUploadedPaths.avatarPath
-      };
-      const response = await authApi.register(registrationData);
-      if (response.success) {
-        showSuccess("Đăng ký phòng thành công! Hồ sơ của bạn đang được xét duyệt.");
-        setUploadedPaths([]);
-        setTimeout(() => (window.location.href = "/login"), 3000);
-      }
-
-    } catch (err) {
-      showError(err.response?.data?.message || "Đã xảy ra lỗi!");
-    } finally {
-      setIsLoading(false);
     }
   };
 

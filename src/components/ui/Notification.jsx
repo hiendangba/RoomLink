@@ -105,45 +105,4 @@ const Notification = ({
   );
 };
 
-// Hook để sử dụng notification dễ dàng
-export const useNotification = () => {
-  const [notification, setNotification] = useState(null);
-
-  const showNotification = (type, message, duration = 5000) => {
-    setNotification({
-      type,
-      message,
-      duration,
-      show: true
-    });
-  };
-
-  const hideNotification = () => {
-    setNotification(prev => prev ? { ...prev, show: false } : null);
-  };
-
-  const NotificationComponent = () => {
-    if (!notification) return null;
-    
-    return (
-      <Notification
-        {...notification}
-        onClose={() => {
-          hideNotification();
-          setTimeout(() => setNotification(null), 300);
-        }}
-      />
-    );
-  };
-
-  return {
-    showSuccess: (message, duration) => showNotification('success', message, duration),
-    showError: (message, duration) => showNotification('error', message, duration),
-    showWarning: (message, duration) => showNotification('warning', message, duration),
-    showInfo: (message, duration) => showNotification('info', message, duration),
-    hideNotification,
-    NotificationComponent
-  };
-};
-
 export default Notification;
