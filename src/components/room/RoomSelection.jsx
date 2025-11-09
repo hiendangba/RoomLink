@@ -3,7 +3,7 @@ import Pagination from "../ui/Pagination";
 import Button from "../ui/Button";
 import { roomAPI, buildingAPI } from "../../api";
 import RoomList from "./RoomList";
-import { useNotification } from '../../components/ui/Notification';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const RoomSelection = ({ onRoomSelected, onCancel }) => {
   const [filters, setFilters] = useState({
