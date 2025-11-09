@@ -1,6 +1,6 @@
 import axios from "axios";
 import refreshAxios from "./refreshAxios";
-let getToken;
+let getToken = () => localStorage.getItem("access_token");
 
 export const setTokenGetter = (fn) => {
   getToken = fn;

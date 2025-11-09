@@ -2,7 +2,7 @@ import axiosClient from "./axiosClient";
 
 const buildingApi = {
     
-    getBuildings() {
+    getBuilding() {
         return axiosClient.get("/buildings/",);
     },
 

@@ -38,8 +38,8 @@ const AdminPage = () => {
     window.location.href = '/room-management';
   };
 
-  const handleHealthCheckupCreation = () => {
-    window.location.href = '/health-checkup-creation';
+  const handleGoToHealthCheckup = () => {
+    window.location.href = '/health-checkup-admin';
   };
 
   const handleUIDemo = () => {
@@ -129,9 +129,9 @@ const AdminPage = () => {
               Dịch vụ & Hỗ trợ
             </h2>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
-              <div className="bg-blue-50 p-6 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors" onClick={handleHealthCheckupCreation}>
-                <h3 className="text-lg font-semibold text-blue-800 mb-2">Tạo đợt khám sức khỏe</h3>
-                <p className="text-blue-600 text-sm">Tạo mới đợt khám sức khỏe cho sinh viên</p>
+              <div className="bg-blue-50 p-6 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors" onClick={handleGoToHealthCheckup}>
+                <h3 className="text-lg font-semibold text-blue-800 mb-2">Khám sức khỏe</h3>
+                <p className="text-blue-600 text-sm">Quản lý đợt khám sức khỏe cho sinh viên</p>
               </div>
               <div className="bg-purple-50 p-6 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors" onClick={handleUIDemo}>
                 <h3 className="text-lg font-semibold text-purple-800 mb-2">Demo UI Components</h3>

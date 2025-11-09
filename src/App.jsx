@@ -29,79 +29,48 @@ import RoomTransferApprovalPage from './pages/admin/RoomTransferApprovalPage';
 import ElectricityWaterBillCreationPage from './pages/admin/ElectricityWaterBillCreationPage';
 import HealthCheckupCreationPage from './pages/admin/HealthCheckupCreationPage';
 import UIComponentsDemo from './components/demo/UIComponentsDemo';
+import HealthCheckListPage from './pages/admin/HealthCheckupAdminPage';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import './App.css';
 
+
 function App() {
-  // Simple routing based on URL
-  const getCurrentPage = () => {
-    const path = window.location.pathname;
-
-    switch (path) {
-      case '/login':
-        return <LoginPage />;
-      case '/register-room':
-        return <RoomRegistrationPageWrapper />;
-      case '/edit-profile':
-        return <EditProfilePageWrapper />;
-      case '/register-face':
-        return <FaceRegistrationPageWrapper />;
-      case '/change-password':
-        return <ChangePasswordPageWrapper />;
-      case '/forgot-password':
-        return <ForgotPasswordPageWrapper />;
-      case '/room-extension':
-        return <RoomExtensionPageWrapper />;
-      case '/room-transfer':
-        return <RoomTransferPageWrapper />;
-      case '/room-cancellation':
-        return <RoomCancellationPageWrapper />;
-      case '/bills':
-        return <BillsViewPageWrapper />;
-      case '/fees':
-        return <FeesViewPageWrapper />;
-      case '/payment':
-        return <PaymentPageWrapper />;
-      case '/student':
-        return <StudentPage />;
-      case '/admin':
-        return <AdminPage />;
-      case '/health-checkup':
-        return <HealthCheckupRegistrationPageWrapper />;
-      case '/vehicle-registration':
-        return <VehicleRegistrationPageWrapper />;
-      case '/extension-approval':
-        return <ExtensionApprovalPageWrapper />;
-      case '/room-registration-approval':
-        return <RoomRegistrationApprovalPageWrapper />;
-      case '/room-cancellation-approval':
-        return <RoomCancellationApprovalPageWrapper />;
-      case '/vehicle-registration-approval':
-        return <VehicleRegistrationApprovalPageWrapper />;
-      case '/room-type-management':
-        return <RoomTypeManagementPageWrapper />;
-      case '/create-admin-account':
-        return <CreateAdminAccountPageWrapper />;
-      case '/room-management':
-        return <RoomManagementPageWrapper />;
-      case '/room-transfer-approval':
-        return <RoomTransferApprovalPageWrapper />;
-      case '/electricity-water-bill-creation':
-        return <ElectricityWaterBillCreationPageWrapper />;
-      case '/health-checkup-creation':
-        return <HealthCheckupCreationPageWrapper />;
-      case '/ui-demo':
-        return <UIComponentsDemoWrapper />;
-      default:
-        return <HomePage />;
-    }
-  };
-
   return (
     <NotificationProvider>
       <AuthProvider>
-        <div className="App">
-          {getCurrentPage()}
-        </div>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register-room" element={<RoomRegistrationPageWrapper />} />
+            <Route path="/edit-profile" element={<EditProfilePageWrapper />} />
+            <Route path="/register-face" element={<FaceRegistrationPageWrapper />} />
+            <Route path="/change-password" element={<ChangePasswordPageWrapper />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPageWrapper />} />
+            <Route path="/room-extension" element={<RoomExtensionPageWrapper />} />
+            <Route path="/room-transfer" element={<RoomTransferPageWrapper />} />
+            <Route path="/room-cancellation" element={<RoomCancellationPageWrapper />} />
+            <Route path="/bills" element={<BillsViewPageWrapper />} />
+            <Route path="/fees" element={<FeesViewPageWrapper />} />
+            <Route path="/payment" element={<PaymentPageWrapper />} />
+            <Route path="/student" element={<StudentPage />} />
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/health-checkup" element={<HealthCheckupRegistrationPageWrapper />} />
+            <Route path="/vehicle-registration" element={<VehicleRegistrationPageWrapper />} />
+            <Route path="/extension-approval" element={<ExtensionApprovalPageWrapper />} />
+            <Route path="/room-registration-approval" element={<RoomRegistrationApprovalPageWrapper />} />
+            <Route path="/room-cancellation-approval" element={<RoomCancellationApprovalPageWrapper />} />
+            <Route path="/vehicle-registration-approval" element={<VehicleRegistrationApprovalPageWrapper />} />
+            <Route path="/room-type-management" element={<RoomTypeManagementPageWrapper />} />
+            <Route path="/create-admin-account" element={<CreateAdminAccountPageWrapper />} />
+            <Route path="/room-management" element={<RoomManagementPageWrapper />} />
+            <Route path="/room-transfer-approval" element={<RoomTransferApprovalPageWrapper />} />
+            <Route path="/electricity-water-bill-creation" element={<ElectricityWaterBillCreationPageWrapper />} />
+            <Route path="/health-checkup-admin" element={<HealthCheckupAdminPageWrapper />} />
+            <Route path="/health-checkup-creation" element={<HealthCheckupCreationPageWrapper />} />
+            <Route path="/ui-demo" element={<UIComponentsDemoWrapper />} />
+            <Route path="*" element={<HomePage />} />
+          </Routes>
+        </BrowserRouter>
       </AuthProvider>
     </NotificationProvider>
   );
@@ -538,28 +507,40 @@ const ElectricityWaterBillCreationPageWrapper = () => {
 };
 
 // Health Checkup Creation Page Wrapper
-const HealthCheckupCreationPageWrapper = () => {
-  const { showSuccess } = useNotification();
+const HealthCheckupAdminPageWrapper = () => {
 
-  const handleSuccess = (sessionData) => {
-    console.log('Health checkup creation successful:', sessionData);
-    showSuccess('Tạo đợt khám sức khỏe thành công!');
-    setTimeout(() => {
-      window.location.href = '/admin';
-    }, 1500);
-  };
-
+  // hủy thì quay lại trang admin 
   const handleCancel = () => {
     window.location.href = '/admin';
   };
 
   return (
-    <HealthCheckupCreationPage
-      onSuccess={handleSuccess}
+    <HealthCheckListPage
       onCancel={handleCancel}
     />
   );
 };
+
+
+const HealthCheckupCreationPageWrapper = () => {
+  const { showSuccess } = useNotification();
+  const handleSuccess = (healthCheckData) => {
+    console.log('Success:', healthCheckData);
+    showSuccess('Thêm đợt khám thành công!');
+    setTimeout(() => {
+      window.location.href = '/health-checkup-admin';
+    }, 1500);
+  }
+  const handleCancel = () => {
+    window.location.href = '/health-checkup-admin';
+  };
+  return (
+    < HealthCheckupCreationPage
+      onSuccess={handleSuccess}
+      onCancel={handleCancel}
+    />
+  )
+}
 
 // Room Management Page Wrapper
 const RoomManagementPageWrapper = () => {
