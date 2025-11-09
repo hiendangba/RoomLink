@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import FaceRecognition from '../../components/auth/FaceRecognition';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import authApi from '../../api/authApi';
+import { jwtDecode } from "jwt-decode";
+
 
 const LoginPage = () => {
   const [showFaceLogin, setShowFaceLogin] = useState(false);
@@ -11,6 +14,7 @@ const LoginPage = () => {
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
 
   // Dữ liệu mẫu users
   const mockUsers = [
@@ -51,45 +55,88 @@ const LoginPage = () => {
     setError(''); // Clear error when user types
   };
 
+
+  // Huy code
+
+  const decode = async (token) => {
+    try {
+      const user = jwtDecode(token);
+      return user;
+    }
+    catch (err) {
+      console.log(err);
+      return null;
+    }
+  };
+
+  // Huy code
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    // Simulate API call delay
-    setTimeout(() => {
-      // Find user in mock data
-      const user = mockUsers.find(u => 
-        u.username === formData.username && 
-        u.password === formData.password
-      );
+    // Huy call APi
+    const identification = formData.username;
+    const password = formData.password;
 
-      if (user) {
-        // Login successful
-        const userData = {
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          name: user.name,
-          email: user.email,
-          studentId: user.studentId
-        };
-        
-        // Store in localStorage for persistence
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('isLoggedIn', 'true');
-        
-        handleLogin(userData);
-      } else {
-        setError('Tên đăng nhập hoặc mật khẩu không đúng!');
+    try {
+      const response = await authApi.login({ identification, password });
+      if (response.success) {
+        const access_token = response.data.access_token;
+        const user = await decode(access_token);
+        user.role = "admin";
+
+        localStorage.setItem('access_token', access_token);
+        localStorage.setItem('user', JSON.stringify(user));
+
+        handleLogin(user);
+
       }
+    }
+    catch (err) {
+      console.log(err.response.data.message);
+    }
+    finally {
       setIsLoading(false);
-    }, 1000);
+    }
+
+    // End Huy call Api
+
+    // // Simulate API call delay
+    // setTimeout(() => {
+    //   // Find user in mock data
+    //   const user = mockUsers.find(u => 
+    //     u.username === formData.username && 
+    //     u.password === formData.password
+    //   );
+
+    //   if (user) {
+    //     // Login successful
+    //     const userData = {
+    //       id: user.id,
+    //       username: user.username,
+    //       role: user.role,
+    //       name: user.name,
+    //       email: user.email,
+    //       studentId: user.studentId
+    //     };
+
+    //     // Store in localStorage for persistence
+    //     localStorage.setItem('user', JSON.stringify(userData));
+    //     localStorage.setItem('isLoggedIn', 'true');
+
+    //     handleLogin(userData);
+    //   } else {
+    //     setError('Tên đăng nhập hoặc mật khẩu không đúng!');
+    //   }
+    //   setIsLoading(false);
+    // }, 1000);
   };
 
   const handleLogin = (userData) => {
     console.log('Login successful:', userData);
-    
+
     // Redirect based on role
     if (userData.role === 'admin') {
       window.location.href = '/admin';
@@ -104,7 +151,7 @@ const LoginPage = () => {
 
   const handleFaceLoginSuccess = (userData) => {
     console.log('Face login successful:', userData);
-    
+
     // Redirect based on role
     if (userData.role === 'admin') {
       window.location.href = '/admin';
@@ -125,7 +172,7 @@ const LoginPage = () => {
   // Render different components based on state
   if (showFaceLogin) {
     return (
-      <FaceRecognition 
+      <FaceRecognition
         onSuccess={handleFaceLoginSuccess}
         onCancel={handleFaceLoginCancel}
       />
@@ -257,7 +304,7 @@ const LoginPage = () => {
                 <p className="text-xs text-gray-600">Tên đăng nhập: <span className="font-mono bg-gray-200 px-1 rounded">admin</span></p>
                 <p className="text-xs text-gray-600">Mật khẩu: <span className="font-mono bg-gray-200 px-1 rounded">admin123</span></p>
               </div>
-              
+
               <div className="bg-gray-50 p-3 rounded-md">
                 <h4 className="text-sm font-medium text-gray-900 mb-2">Sinh viên:</h4>
                 <p className="text-xs text-gray-600">Tên đăng nhập: <span className="font-mono bg-gray-200 px-1 rounded">student001</span></p>
