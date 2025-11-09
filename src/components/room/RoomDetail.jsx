@@ -3,7 +3,8 @@ import Button from '../ui/Button';
 import PageLayout from '../ui/PageLayout';
 import two_bed from "../../assets/2bed.png";
 import four_bed from "../../assets/4bed.png";
-
+import six_bed from "../../assets/6bed.png"
+import eight_bed from "../../assets/8bed.png"
 const RoomDetail = ({ room, onRoomSlotSelected, onBack }) => {
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [duration, setDuration] = useState();
@@ -22,13 +23,9 @@ const RoomDetail = ({ room, onRoomSlotSelected, onBack }) => {
             return;
         }
 
-        const startDate = new Date();
-        const endDate = new Date(startDate);
-        endDate.setMonth(startDate.getMonth() + parseInt(duration));
-
         onRoomSlotSelected({
             slotId: selectedSlot,
-            endDate: endDate.toISOString().split('T')[0],
+            duration: duration,
         });
     };
 
@@ -45,7 +42,8 @@ const RoomDetail = ({ room, onRoomSlotSelected, onBack }) => {
     let roomImage = null;
     if (room.capacity === 2) roomImage = two_bed;
     else if (room.capacity === 4) roomImage = four_bed;
-
+    else if (room.capacity === 6) roomImage = six_bed;
+    else if (room.capacity === 8) roomImage = eight_bed;
     return (
         <PageLayout title={`Phòng ${room.roomNumber}`}>
             <div className="space-y-4">

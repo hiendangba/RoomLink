@@ -1,50 +1,21 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
+import { authAPI, userAPI } from '../../api';
+import { setTokenGetter } from '../../api/axiosClient';
 import FaceRecognition from '../../components/auth/FaceRecognition';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import authApi from '../../api/authApi';
-import { jwtDecode } from "jwt-decode";
-
 
 const LoginPage = () => {
+  const { login: authLogin } = useAuth();
+  const { showSuccess, showError } = useNotification();
   const [showFaceLogin, setShowFaceLogin] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     password: ''
   });
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-
-  // Dữ liệu mẫu users
-  const mockUsers = [
-    {
-      id: 1,
-      username: 'admin',
-      password: 'admin123',
-      role: 'admin',
-      name: 'Quản trị viên',
-      email: 'admin@roomlink.com'
-    },
-    {
-      id: 2,
-      username: 'student001',
-      password: 'student123',
-      role: 'student',
-      name: 'Nguyễn Văn A',
-      email: 'student001@roomlink.com',
-      studentId: '22110390'
-    },
-    {
-      id: 3,
-      username: 'student002',
-      password: 'student123',
-      role: 'student',
-      name: 'Trần Thị B',
-      email: 'student002@roomlink.com',
-      studentId: '22110335'
-    }
-  ];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -52,91 +23,102 @@ const LoginPage = () => {
       ...prev,
       [name]: value
     }));
-    setError(''); // Clear error when user types
   };
-
-
-  // Huy code
-
-  const decode = async (token) => {
-    try {
-      const user = jwtDecode(token);
-      return user;
-    }
-    catch (err) {
-      console.log(err);
-      return null;
-    }
-  };
-
-  // Huy code
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError('');
+    
+    // Validate input
+    if (!formData.username || !formData.password) {
+      showError('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!');
+      return;
+    }
 
-    // Huy call APi
-    const identification = formData.username;
-    const password = formData.password;
+    if (formData.username.length !== 12) {
+      showError('CCCD phải đủ 12 số!');
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
-      const response = await authApi.login({ identification, password });
-      if (response.success) {
-        const access_token = response.data.access_token;
-        const user = await decode(access_token);
-        user.role = "admin";
-
-        localStorage.setItem('access_token', access_token);
-        localStorage.setItem('user', JSON.stringify(user));
-
-        handleLogin(user);
-
+      // Step 1: Call API login
+      const loginResponse = await authAPI.login({
+        identification: formData.username,
+        password: formData.password
+      });
+      
+      // Extract access_token from response (axiosClient already returns response.data)
+      const access_token = loginResponse.data.access_token;
+      const userId = loginResponse.data.userId;
+      
+      if (!access_token) {
+        throw new Error('Không nhận được token từ server');
       }
-    }
-    catch (err) {
-      console.log(err.response.data.message);
-    }
-    finally {
+      
+      // Step 2: Store token and setup token getter (needed for getUser API)
+      localStorage.setItem('token', access_token);
+      setTokenGetter(() => localStorage.getItem('token'));
+      
+      // Step 3: Call getUser API to get full user info (including role)
+      try {
+        const userResponse = await userAPI.getUser();
+        const userData = userResponse.data;
+        
+        // Step 4: User data already includes role from BE
+        const user = {
+          ...userData,
+          id: userId || userData.id
+        };
+        
+        // Step 5: Store user data and token using AuthContext
+        authLogin(user, access_token);
+        
+        // Show success notification
+        showSuccess('Đăng nhập thành công!');
+        
+        // Redirect based on role after a short delay
+        setTimeout(() => {
+          if (user.role === 'admin') {
+            window.location.href = '/admin';
+          } else {
+            window.location.href = '/student';
+          }
+        }, 1000);
+      } catch (getUserError) {
+        // If getUser fails, still clear token and show error
+        const getUserErrorMessage = getUserError.response?.data?.message || getUserError.message || 'Không thể lấy thông tin người dùng!';
+        showError(getUserErrorMessage);
+        localStorage.removeItem('token');
+        setTokenGetter(() => null);
+      }
+    } catch (err) {
+      // Handle different types of errors
+      let errorMessage = 'Tên đăng nhập hoặc mật khẩu không đúng!';
+      
+      if (err.response) {
+        // Server responded with error status
+        errorMessage = err.response.data?.message || errorMessage;
+      } else if (err.request) {
+        // Request was made but no response received (network error)
+        errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng!';
+      } else {
+        // Something else happened
+        errorMessage = err.message || errorMessage;
+      }
+      
+      showError(errorMessage);
+      // Clear token if login failed
+      localStorage.removeItem('token');
+      setTokenGetter(() => null);
+    } finally {
       setIsLoading(false);
     }
-
-    // End Huy call Api
-
-    // // Simulate API call delay
-    // setTimeout(() => {
-    //   // Find user in mock data
-    //   const user = mockUsers.find(u => 
-    //     u.username === formData.username && 
-    //     u.password === formData.password
-    //   );
-
-    //   if (user) {
-    //     // Login successful
-    //     const userData = {
-    //       id: user.id,
-    //       username: user.username,
-    //       role: user.role,
-    //       name: user.name,
-    //       email: user.email,
-    //       studentId: user.studentId
-    //     };
-
-    //     // Store in localStorage for persistence
-    //     localStorage.setItem('user', JSON.stringify(userData));
-    //     localStorage.setItem('isLoggedIn', 'true');
-
-    //     handleLogin(userData);
-    //   } else {
-    //     setError('Tên đăng nhập hoặc mật khẩu không đúng!');
-    //   }
-    //   setIsLoading(false);
-    // }, 1000);
   };
 
   const handleLogin = (userData) => {
     console.log('Login successful:', userData);
-
+    
     // Redirect based on role
     if (userData.role === 'admin') {
       window.location.href = '/admin';
@@ -151,7 +133,7 @@ const LoginPage = () => {
 
   const handleFaceLoginSuccess = (userData) => {
     console.log('Face login successful:', userData);
-
+    
     // Redirect based on role
     if (userData.role === 'admin') {
       window.location.href = '/admin';
@@ -172,7 +154,7 @@ const LoginPage = () => {
   // Render different components based on state
   if (showFaceLogin) {
     return (
-      <FaceRecognition
+      <FaceRecognition 
         onSuccess={handleFaceLoginSuccess}
         onCancel={handleFaceLoginCancel}
       />
@@ -217,12 +199,6 @@ const LoginPage = () => {
               placeholder="Nhập mật khẩu"
               required
             />
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
-                {error}
-              </div>
-            )}
 
             <div>
               <Button
@@ -285,31 +261,6 @@ const LoginPage = () => {
               >
                 Đăng nhập bằng khuôn mặt
               </Button>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Tài khoản mẫu</span>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-1 gap-3">
-              <div className="bg-gray-50 p-3 rounded-md">
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Quản trị viên:</h4>
-                <p className="text-xs text-gray-600">Tên đăng nhập: <span className="font-mono bg-gray-200 px-1 rounded">admin</span></p>
-                <p className="text-xs text-gray-600">Mật khẩu: <span className="font-mono bg-gray-200 px-1 rounded">admin123</span></p>
-              </div>
-
-              <div className="bg-gray-50 p-3 rounded-md">
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Sinh viên:</h4>
-                <p className="text-xs text-gray-600">Tên đăng nhập: <span className="font-mono bg-gray-200 px-1 rounded">student001</span></p>
-                <p className="text-xs text-gray-600">Mật khẩu: <span className="font-mono bg-gray-200 px-1 rounded">student123</span></p>
-              </div>
             </div>
           </div>
         </div>

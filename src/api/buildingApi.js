@@ -1,8 +1,13 @@
 import axiosClient from "./axiosClient";
 
 const buildingApi = {
-    getBuilding(data) {
-        return axiosClient.get("/buildings/", { params: data });
+    
+    getBuildings() {
+        return axiosClient.get("/buildings/",);
+    },
+
+    getBuildings(data) {
+        return axiosClient.get("/buildings/get", { params: data });
     }
 };
 

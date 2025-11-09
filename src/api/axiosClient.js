@@ -31,7 +31,10 @@ axiosClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    
+    const publicAuthEndpoints = ['/auth/login', '/auth/register', '/auth/checkCCCD', '/auth/checkAvatar'];
+    const isPublicAuthEndpoint = publicAuthEndpoints.some(endpoint => originalRequest.url?.includes(endpoint));
+    if (error.response?.status === 401 && !originalRequest._retry && !isPublicAuthEndpoint) {
       originalRequest._retry = true;
       try {
         const res = await refreshAxios.post("/auth/refreshToken");

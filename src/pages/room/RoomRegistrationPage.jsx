@@ -5,11 +5,11 @@ import Select from '../../components/ui/Select';
 import FileUploadButton from '../../components/ui/FileUploadButton';
 import PageLayout from '../../components/ui/PageLayout';
 import RoomSelection from '../../components/room/RoomSelection';
-import { useNotification } from '../../components/ui/Notification';
+import { useNotification } from '../../contexts/NotificationContext';
 import ImageEditorModal from '../../components/modal/ImageEditorModal';
 import RoomDetail from "../../components/room/RoomDetail"
 import jsQR from 'jsqr';
-import authApi from "../../api/authApi"
+import { authAPI } from "../../api"
 const RoomRegistrationPage = () => {
   const [currentStep, setCurrentStep] = useState('room-selection'); // room-selection, personal-info
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -49,6 +49,7 @@ const RoomRegistrationPage = () => {
       />
     );
   }
+
   if (currentStep === 'room-detail') {
     return (
       <RoomDetail
@@ -77,7 +78,7 @@ const RoomRegistrationPage = () => {
 
 // Personal Information Form Component
 const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) => {
-  const { showSuccess, showError, NotificationComponent } = useNotification();
+  const { showSuccess, showError } = useNotification();
 
   const [formData, setFormData] = useState({
     nation: 'Việt Nam', // Mặc định Việt Nam, không cho thay đổi
@@ -89,6 +90,7 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
     region: '',
     email: '',
     phone: '',
+    mssv: '',
     school: "Trường đại học Sư Phạm Kỹ Thuật TP. HCM"
   });
 
@@ -263,47 +265,65 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
     return Object.keys(newErrors).length === 0;
   };
 
+  const [uploadedPaths, setUploadedPaths] = useState({
+    cccdPath: null,
+    avatarPath: null,
+  });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!validateForm()) return;
 
-    if (validateForm()) {
-      setIsLoading(true);
-      const formDataCCCD = new FormData();
-      formDataCCCD.append("CCCD", files.cccdFront); // Gửi file thật, không chỉ .name
-      const formDataAvatar = new FormData();
-      formDataAvatar.append("Avatar", files.avatar);
-      try {
-        const cccdResponse = await authApi.checkCCCD(formDataCCCD);
-        const avatarResponse = await authApi.checkAvatar(formDataAvatar);
-        // Prepare registration data
-        const genderMap = { Nam: "male", Nữ: "female" };
+    setIsLoading(true);
 
-        const registrationData = {
-          ...formData,
-          gender: genderMap[formData.gender] || formData.gender,
-          roomSlotId: selectedRoomSlot.slotId,
-          endDate: selectedRoomSlot.endDate,
-          frontIdentificationImage: cccdResponse.data.cccdPath,
-          avatar: avatarResponse.data.avatarPath
-        };
-        console.log("registration data", registrationData)
-        const response = await authApi.register(registrationData);
-        if (response.success === true) {
-          setTimeout(() => {
-            setIsLoading(false);
-            showSuccess('Đăng ký phòng thành công! Hồ sơ của bạn đang được xét duyệt.');
-            setTimeout(() => {
-              window.location.href = '/login';
-            }, 2000);
-          }, 1500);
-        }
-      } catch (err) {
-        console.log(err.response.data.message)
-        showError(err.response.data.message);
+    const formDataCCCD = new FormData();
+    formDataCCCD.append("CCCD", files.cccdFront);
+    const formDataAvatar = new FormData();
+    formDataAvatar.append("Avatar", files.avatar);
+
+    try {
+      let cccdPath = uploadedPaths.cccdPath;
+      let avatarPath = uploadedPaths.avatarPath;
+      if (!cccdPath || !avatarPath) {
+        const [cccdResponse, avatarResponse] = await Promise.all([
+          authAPI.checkCCCD(formDataCCCD),
+          authAPI.checkAvatar(formDataAvatar),
+        ]);
+        cccdPath = cccdResponse.data.cccdPath;
+        avatarPath = avatarResponse.data.avatarPath;
+        setUploadedPaths({
+          cccdPath,
+          avatarPath,
+        });
       }
+      const genderMap = { Nam: "male", Nữ: "female" };
+      const registrationData = {
+        ...formData,
+        gender: genderMap[formData.gender] || formData.gender,
+        roomSlotId: selectedRoomSlot.slotId,
+        duration: selectedRoomSlot.duration,
+        frontIdentificationImage: cccdPath,
+        avatar: avatarPath,
+      };
+
+      const response = await authAPI.register(registrationData);
+
+      if (response.success === true) {
+        showSuccess("Đăng ký phòng thành công! Hồ sơ của bạn đang được xét duyệt.");
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 2000);
+      }
+    } catch (err) {
+      console.error(err);
+      showError(err?.response?.data?.message || "Đăng ký thất bại. Vui lòng thử lại!");
+    } finally {
+      setIsLoading(false);
     }
   };
+
+
 
   // Image preprocessing functions
   const enhanceImageForQR = (imageData) => {
@@ -979,7 +999,6 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
 
   return (
     <>
-      <NotificationComponent />
       <ImageEditorModal
         isOpen={!!editingImage}
         onClose={handleImageEditCancel}
@@ -1030,9 +1049,7 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
               <div className="flex items-center">
                 <span className="text-blue-700 font-medium">Thời hạn thuê:</span>
                 <span className="ml-1 text-blue-600">
-                  {selectedRoomSlot.endDate
-                    ? new Date(selectedRoomSlot.endDate).toLocaleDateString('vi-VN')
-                    : '—'}
+                  {selectedRoomSlot.duration} Tháng
                 </span>
               </div>
             </div>
@@ -1294,7 +1311,7 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
               type="submit"
               variant="primary"
               loading={isLoading}
-            // loadingText="Đang xử lý..."
+              loadingText="Đang xử lý..."
             >
               Hoàn tất đăng ký
             </Button>
