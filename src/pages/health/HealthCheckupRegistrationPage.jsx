@@ -1,62 +1,434 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
+import { healthCheckApi } from '../../api';
+import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
+import LoadingState from '../../components/ui/LoadingState';
 
 const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
   const { user } = useAuth();
+  const { showSuccess, showError } = useNotification();
   const [checkupSessions, setCheckupSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(4);
-
-  const mockCheckupSessions = [
-    { id: 1, name: 'Đợt khám sức khỏe định kỳ học kỳ 1', description: 'Khám sức khỏe tổng quát cho sinh viên', startDate: '2024-01-15', endDate: '2024-01-30', registrationDeadline: '2024-01-10', maxParticipants: 200, currentParticipants: 45, status: 'open', availableDates: [ { date: '2024-01-15', timeSlots: ['08:00-09:00','09:00-10:00','10:00-11:00'] } ], location: 'Phòng khám KTX - Tầng 1, Tòa A', requirements: ['Mang theo CMND/CCCD'] },
-  ];
-
-  const getUserRegistrations = () => { const registrations = localStorage.getItem('healthCheckupRegistrations'); return registrations ? JSON.parse(registrations) : []; };
-  const saveUserRegistration = (registration) => { const registrations = getUserRegistrations(); registrations.push(registration); localStorage.setItem('healthCheckupRegistrations', JSON.stringify(registrations)); };
+  const [note, setNote] = useState('');
 
   useEffect(() => {
-    try { const savedSessions = JSON.parse(localStorage.getItem('healthCheckupSessions') || '[]'); const allSessions = [...mockCheckupSessions]; savedSessions.forEach(savedSession => { if (!allSessions.find(session => session.id === savedSession.id)) { allSessions.push(savedSession); } }); setCheckupSessions(allSessions); setLoading(false); } catch (error) { console.error('Error loading health checkup sessions:', error); setCheckupSessions(mockCheckupSessions); setLoading(false); }
+    loadHealthChecks();
   }, []);
 
-  const handleSessionSelect = (session) => { setSelectedSession(session); setSelectedDate(''); setSelectedTimeSlot(''); setError(''); };
-  const handleDateSelect = (date) => { setSelectedDate(date); setSelectedTimeSlot(''); setError(''); };
-  const handleTimeSlotSelect = (timeSlot) => { setSelectedTimeSlot(timeSlot); setError(''); };
-
-  const handleSubmit = (e) => {
-    e.preventDefault(); setError(''); setSuccess('');
-    if (!selectedSession) { setError('Vui lòng chọn đợt khám sức khỏe'); return; }
-    if (!selectedDate) { setError('Vui lòng chọn ngày khám'); return; }
-    if (!selectedTimeSlot) { setError('Vui lòng chọn khung giờ khám'); return; }
-    const userRegistrations = getUserRegistrations();
-    const existingRegistration = userRegistrations.find(reg => reg.userId === user.id && reg.sessionId === selectedSession.id);
-    if (existingRegistration) { setError('Bạn đã đăng ký khám cho đợt này rồi'); return; }
-    const registration = { id: Date.now(), userId: user.id, userName: user.name, userEmail: user.email, sessionId: selectedSession.id, sessionName: selectedSession.name, selectedDate, selectedTimeSlot, registrationDate: new Date().toISOString(), status: 'confirmed' };
-    try { saveUserRegistration(registration); setSuccess('Đăng ký thành công!'); const updatedSessions = checkupSessions.map(session => (session.id === selectedSession.id ? { ...session, currentParticipants: session.currentParticipants + 1, status: session.currentParticipants + 1 >= session.maxParticipants ? 'full' : 'open' } : session)); setCheckupSessions(updatedSessions); setSelectedSession(null); setSelectedDate(''); setSelectedTimeSlot(''); setTimeout(() => { if (onSuccess) { onSuccess(registration); } }, 2000); } catch { setError('Có lỗi xảy ra khi đăng ký. Vui lòng thử lại.'); }
+  const loadHealthChecks = async () => {
+    try {
+      setLoading(true);
+      const response = await healthCheckApi.getHealthChecks();
+      if (response.success && response.data) {
+        const healthChecks = response.data;
+        
+        // Transform API response to match component needs
+        const transformedSessions = healthChecks.map((hc) => ({
+          id: hc.id,
+          name: hc.title,
+          description: hc.description || '',
+          startDate: hc.startDate,
+          endDate: hc.endDate,
+          registrationDeadline: hc.registrationEndDate,
+          maxParticipants: hc.capacity,
+          currentParticipants: hc.registeredCount || 0,
+          status: hc.status === 'active' && 
+                  new Date(hc.registrationEndDate) >= new Date() &&
+                  (hc.registeredCount || 0) < hc.capacity ? 'open' : 'closed',
+          location: hc.buildingName || hc.location || 'Chưa xác định',
+          price: hc.price,
+          registrationStartDate: hc.registrationStartDate,
+          registrationEndDate: hc.registrationEndDate,
+          buildingName: hc.buildingName,
+          // Generate available dates and time slots from startDate to endDate
+          availableDates: generateAvailableDates(hc.startDate, hc.endDate)
+        }));
+        
+        setCheckupSessions(transformedSessions);
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || 'Không thể tải danh sách đợt khám';
+      showError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const formatDate = (dateString) => { const date = new Date(dateString); return date.toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }); };
-  const getStatusColor = (status) => status === 'open' ? 'text-green-600 bg-green-100' : status === 'full' ? 'text-red-600 bg-red-100' : 'text-gray-600 bg-gray-100';
-  const getStatusText = (status) => status === 'open' ? 'Đang mở đăng ký' : status === 'full' ? 'Đã đầy' : 'Đã đóng';
+  // Generate available dates and time slots
+  const generateAvailableDates = (startDate, endDate) => {
+    const dates = [];
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const timeSlots = ['08:00-09:00', '09:00-10:00', '10:00-11:00', '14:00-15:00', '15:00-16:00'];
+    
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      dates.push({
+        date: d.toISOString().split('T')[0],
+        timeSlots: timeSlots
+      });
+    }
+    
+    return dates;
+  };
+
+  const handleSessionSelect = (session) => {
+    setSelectedSession(session);
+    setSelectedDate('');
+    setSelectedTimeSlot('');
+  };
+
+  const handleBackToStep1 = () => {
+    setSelectedSession(null);
+    setSelectedDate('');
+    setSelectedTimeSlot('');
+    setNote('');
+  };
+
+  const handleDateSelect = (date) => {
+    setSelectedDate(date);
+    setSelectedTimeSlot('');
+  };
+
+  const handleTimeSlotSelect = (timeSlot) => {
+    setSelectedTimeSlot(timeSlot);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!selectedSession) {
+      showError('Vui lòng chọn đợt khám sức khỏe');
+      return;
+    }
+    
+    if (!selectedDate) {
+      showError('Vui lòng chọn ngày khám');
+      return;
+    }
+    
+    if (!selectedTimeSlot) {
+      showError('Vui lòng chọn khung giờ khám');
+      return;
+    }
+
+    // Get studentId from user object (stored during login)
+    const studentId = user?.roleId;
+    if (!studentId) {
+      showError('Không thể xác định thông tin sinh viên. Vui lòng đăng nhập lại.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      
+      // Combine date and time slot to create registerDate
+      const [startTime] = selectedTimeSlot.split('-');
+      const registerDate = new Date(`${selectedDate}T${startTime}:00`);
+      
+      const registrationData = {
+        studentId: studentId,
+        healthCheckId: selectedSession.id,
+        registerDate: registerDate.toISOString(),
+        note: note || null
+      };
+
+      const response = await healthCheckApi.registerHealthCheck(registrationData);
+      
+      showSuccess('Đăng ký khám sức khỏe thành công!');
+      
+      // Reset form
+      setSelectedSession(null);
+      setSelectedDate('');
+      setSelectedTimeSlot('');
+      setNote('');
+      
+      // Reload health checks to update registered count
+      await loadHealthChecks();
+      
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        setTimeout(() => {
+          onSuccess(response.data);
+        }, 1000);
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi đăng ký. Vui lòng thử lại.';
+      showError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Format date to Vietnamese format (dd/mm/yyyy HH:mm)
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  // Format date to Vietnamese format (dd/mm/yyyy) - only date, no time
+  const formatDateOnly = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      
+      // Get day of week in Vietnamese
+      const daysOfWeek = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+      const dayOfWeek = daysOfWeek[date.getDay()];
+      
+      return `${dayOfWeek}, ${day}/${month}/${year}`;
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
 
   const totalPages = Math.ceil(checkupSessions.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentSessions = checkupSessions.slice(startIndex, endIndex);
-  const handlePageChange = (page) => setCurrentPage(page);
 
-  if (loading) { return (<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div><p className="text-gray-600">Đang tải danh sách đợt khám...</p></div></div>); }
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
 
   return (
-    <div className="min-h-screen bg-gray-50"><div className="w-full px-4 py-8"><div className="bg-white rounded-lg shadow-lg p-8"><div className="flex items-center justify-between mb-8"><div><h1 className="text-3xl font-bold text-gray-800">Đăng ký khám sức khỏe</h1><p className="text-gray-600 mt-1">Đăng ký tham gia các đợt khám sức khỏe định kỳ</p></div><Button onClick={onCancel} variant="ghost" size="small" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>} /></div>{error && (<div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">{error}</div>)}{success && (<div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">{success}</div>)}<form onSubmit={handleSubmit} className="space-y-8"><div><h2 className="text-xl font-semibold text-gray-700 mb-4">Bước 1: Chọn đợt khám sức khỏe</h2><div className="grid gap-4">{currentSessions.map((session) => (<div key={session.id} className={`border rounded-lg p-6 cursor-pointer transition-colors ${selectedSession?.id === session.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`} onClick={() => handleSessionSelect(session)}><div className="flex items-start justify-between"><div className="flex-1"><h3 className="text-lg font-semibold text-gray-800 mb-2">{session.name}</h3><p className="text-gray-600 mb-3">{session.description}</p><div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600"><div><span className="font-medium">Thời gian:</span> {formatDate(session.startDate)} - {formatDate(session.endDate)}</div><div><span className="font-medium">Hạn đăng ký:</span> {formatDate(session.registrationDeadline)}</div><div><span className="font-medium">Địa điểm:</span> {session.location}</div><div><span className="font-medium">Số lượng:</span> {session.currentParticipants}/{session.maxParticipants}</div></div><div className="mt-3"><span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(session.status)}`}>{getStatusText(session.status)}</span></div></div></div></div>))}</div>{checkupSessions.length > itemsPerPage && (<div className="mt-6"><Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} itemsPerPage={itemsPerPage} totalItems={checkupSessions.length} showInfo={true} /></div>)}</div>{selectedSession && selectedSession.status === 'open' && (<div><h2 className="text-xl font-semibold text-gray-700 mb-4">Bước 2: Chọn ngày và giờ khám</h2><div className="mb-6"><h3 className="text-lg font-medium text-gray-700 mb-3">Chọn ngày khám:</h3><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">{selectedSession.availableDates.map((dateInfo) => (<button key={dateInfo.date} type="button" onClick={() => handleDateSelect(dateInfo.date)} className={`p-3 border rounded-lg text-left transition-colors ${selectedDate === dateInfo.date ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-gray-300'}`}><div className="font-medium">{formatDate(dateInfo.date)}</div><div className="text-sm text-gray-600">{dateInfo.timeSlots.length} khung giờ có sẵn</div></button>))}</div></div>{selectedDate && (<div className="mb-6"><h3 className="text-lg font-medium text-gray-700 mb-3">Chọn khung giờ khám:</h3><div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">{selectedSession.availableDates.find(d => d.date === selectedDate)?.timeSlots.map((timeSlot) => (<button key={timeSlot} type="button" onClick={() => handleTimeSlotSelect(timeSlot)} className={`p-3 border rounded-lg text-center transition-colors ${selectedTimeSlot === timeSlot ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-gray-300'}`}>{timeSlot}</button>))}</div></div>)}<div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4"><h3 className="text-lg font-medium text-yellow-800 mb-2">Lưu ý trước khi khám:</h3><ul className="list-disc list-inside text-yellow-700 space-y-1">{selectedSession.requirements.map((requirement, index) => (<li key={index}>{requirement}</li>))}</ul></div></div>)}{selectedSession && selectedSession.status === 'open' && selectedDate && selectedTimeSlot && (<div className="flex justify-end space-x-4"><Button variant="outline" onClick={onCancel}>Hủy</Button><Button type="submit" variant="primary">Đăng ký khám sức khỏe</Button></div>)}
-          </form></div></div></div>
+    <PageLayout
+      title={selectedSession ? "Chọn ngày và giờ khám" : "Đăng ký khám sức khỏe"}
+      subtitle={selectedSession ? "Vui lòng chọn ngày và khung giờ khám sức khỏe" : "Đăng ký tham gia các đợt khám sức khỏe định kỳ"}
+      showClose={!selectedSession}
+      onClose={onCancel}
+      showBack={!!selectedSession}
+      backText="Quay lại"
+      onBack={selectedSession ? handleBackToStep1 : undefined}
+    >
+      {!selectedSession ? (
+        /* Step 1: Select Health Check Session */
+        <div>
+          <h2 className="text-xl font-semibold text-gray-700 mb-4">
+            Bước 1: Chọn đợt khám sức khỏe
+          </h2>
+          
+          <LoadingState
+            isLoading={loading}
+            isEmpty={!loading && checkupSessions.length === 0}
+            emptyState={
+              <div className="text-center py-12 text-gray-500">
+                <p>Hiện tại không có đợt khám sức khỏe nào đang mở đăng ký.</p>
+              </div>
+            }
+          >
+            <>
+              <div className="mt-8">
+                {currentSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className={`border border-gray-200 rounded-xl shadow p-4 mb-4 hover:shadow-lg transition cursor-pointer bg-white ${
+                      selectedSession?.id === session.id
+                        ? 'border-blue-500'
+                        : ''
+                    }`}
+                    onClick={() => handleSessionSelect(session)}
+                  >
+                    {/* Header: tiêu đề */}
+                    <div className="mb-2">
+                      <h2 className="text-xl font-semibold">{session.name}</h2>
+                    </div>
+
+                    {/* Nội dung */}
+                    <p className="text-gray-700 mb-1">{session.description}</p>
+                    <p className="text-gray-600 mb-1">
+                      <strong>Tòa nhà:</strong> {session.buildingName || session.location || 'Chưa xác định'}
+                    </p>
+                    <p className="text-gray-600 mb-1">
+                      <strong>Thời gian:</strong> {formatDate(session.startDate)} → {formatDate(session.endDate)}
+                    </p>
+                    <p className="text-gray-600 mb-1">
+                      <strong>Sức chứa:</strong> {session.maxParticipants} |{' '}
+                      <strong>Đã đăng ký:</strong> {session.currentParticipants}
+                    </p>
+                    <p className="text-gray-600 mb-1">
+                      <strong>Phí:</strong> {formatCurrency(session.price)}
+                    </p>
+                    <p className="text-gray-600 mb-3">
+                      <strong>Thời gian đăng ký:</strong> {formatDate(session.registrationStartDate)} →{' '}
+                      {formatDate(session.registrationEndDate)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              
+              {checkupSessions.length > itemsPerPage && (
+                <div className="mt-6">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                    itemsPerPage={itemsPerPage}
+                    totalItems={checkupSessions.length}
+                    showInfo={true}
+                  />
+                </div>
+              )}
+            </>
+          </LoadingState>
+        </div>
+      ) : selectedSession.status === 'open' ? (
+        /* Step 2: Select Date and Time */
+        <form onSubmit={handleSubmit} className="space-y-8">
+
+          {/* Selected Health Check Info */}
+          {selectedSession && (
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Thông tin Đợt khám</h2>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Tên đợt khám:</span> {selectedSession.name}
+                </div>
+                <div>
+                  <span className="font-medium">Tòa nhà:</span> {selectedSession.buildingName || selectedSession.location || 'Chưa xác định'}
+                </div>
+                <div>
+                  <span className="font-medium">Thời gian:</span> {formatDate(selectedSession.startDate)} → {formatDate(selectedSession.endDate)}
+                </div>
+                <div>
+                  <span className="font-medium">Sức chứa:</span> {selectedSession.currentParticipants}/{selectedSession.maxParticipants}
+                </div>
+                <div>
+                  <span className="font-medium">Phí:</span> {formatCurrency(selectedSession.price)}
+                </div>
+                <div>
+                  <span className="font-medium">Thời gian đăng ký:</span> {formatDate(selectedSession.registrationStartDate)} → {formatDate(selectedSession.registrationEndDate)}
+                </div>
+              </div>
+            </div>
+          )}
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Chọn ngày khám <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-3 flex-wrap justify-center">
+                {selectedSession.availableDates.map((dateInfo) => (
+                  <Button
+                    key={dateInfo.date}
+                    type="button"
+                    onClick={() => handleDateSelect(dateInfo.date)}
+                    variant={selectedDate === dateInfo.date ? "primary" : "outline"}
+                  >
+                    {formatDateOnly(dateInfo.date)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {selectedDate && (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Chọn khung giờ khám <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-3 flex-wrap justify-center">
+                  {selectedSession.availableDates
+                    .find((d) => d.date === selectedDate)
+                    ?.timeSlots.map((timeSlot) => (
+                      <Button
+                        key={timeSlot}
+                        type="button"
+                        onClick={() => handleTimeSlotSelect(timeSlot)}
+                        variant={selectedTimeSlot === timeSlot ? "primary" : "outline"}
+                      >
+                        {timeSlot}
+                      </Button>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Note field */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Ghi chú (tùy chọn)
+              </label>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Nhập ghi chú nếu có..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                rows={3}
+                maxLength={2000}
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                {note.length}/2000 ký tự
+              </p>
+            </div>
+
+            {/* Requirements notice */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h3 className="text-lg font-medium text-yellow-800 mb-2">
+                Lưu ý trước khi khám:
+              </h3>
+              <ul className="list-disc list-inside text-yellow-700 space-y-1">
+                <li>Mang theo CMND/CCCD</li>
+                <li>Đến đúng giờ đã đăng ký</li>
+                <li>Nhịn ăn sáng nếu có yêu cầu</li>
+              </ul>
+            </div>
+
+          {/* Submit buttons */}
+          {selectedDate && selectedTimeSlot && (
+            <div className="flex justify-end space-x-4">
+              <Button variant="outline" onClick={onCancel} type="button">
+                Hủy
+              </Button>
+              <Button type="submit" variant="primary" loading={isSubmitting}>
+                Đăng ký khám sức khỏe
+              </Button>
+            </div>
+          )}
+        </form>
+      ) : (
+        <div className="text-center py-12 text-gray-500">
+          <p>Đợt khám này đã đóng đăng ký hoặc đã đầy.</p>
+          <Button
+            variant="outline"
+            size="small"
+            onClick={handleBackToStep1}
+            className="mt-4"
+          >
+            Quay lại chọn đợt khám khác
+          </Button>
+        </div>
+      )}
+    </PageLayout>
   );
 };
 

@@ -1,6 +1,7 @@
 import React from 'react';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider, useNotification } from './contexts/NotificationContext';
+import { userApi } from './api';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import RoomRegistrationPage from './pages/room/RoomRegistrationPage';
@@ -27,9 +28,8 @@ import CreateAdminAccountPage from './pages/admin/CreateAdminAccountPage';
 import RoomManagementPage from './pages/admin/RoomManagementPage';
 import RoomTransferApprovalPage from './pages/admin/RoomTransferApprovalPage';
 import ElectricityWaterBillCreationPage from './pages/admin/ElectricityWaterBillCreationPage';
-import HealthCheckupCreationPage from './pages/admin/HealthCheckupCreationPage';
-import UIComponentsDemo from './components/demo/UIComponentsDemo';
-import HealthCheckListPage from './pages/admin/HealthCheckupAdminPage';
+import HealthCheckUpManagementPage from './pages/admin/HealthCheckUpManagementPage';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import './App.css';
 
@@ -39,7 +39,8 @@ function App() {
     <NotificationProvider>
       <AuthProvider>
         <BrowserRouter>
-          <Routes>
+          <ProtectedRoute>
+            <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register-room" element={<RoomRegistrationPageWrapper />} />
             <Route path="/edit-profile" element={<EditProfilePageWrapper />} />
@@ -65,11 +66,10 @@ function App() {
             <Route path="/room-management" element={<RoomManagementPageWrapper />} />
             <Route path="/room-transfer-approval" element={<RoomTransferApprovalPageWrapper />} />
             <Route path="/electricity-water-bill-creation" element={<ElectricityWaterBillCreationPageWrapper />} />
-            <Route path="/health-checkup-admin" element={<HealthCheckupAdminPageWrapper />} />
-            <Route path="/health-checkup-creation" element={<HealthCheckupCreationPageWrapper />} />
-            <Route path="/ui-demo" element={<UIComponentsDemoWrapper />} />
+            <Route path="/health-checkup-management" element={<HealthCheckUpManagementPageWrapper />} />
             <Route path="*" element={<HomePage />} />
-          </Routes>
+            </Routes>
+          </ProtectedRoute>
         </BrowserRouter>
       </AuthProvider>
     </NotificationProvider>
@@ -121,14 +121,66 @@ const FaceRegistrationPageWrapper = () => {
 
 // Change Password Page Wrapper
 const ChangePasswordPageWrapper = () => {
-  const handleSuccess = () => {
+  const { user, logout, login } = useAuth();
+
+  const handleSuccess = async () => {
     console.log('Password changed successfully');
-    alert('Mật khẩu đã được thay đổi thành công!');
-    window.location.href = '/student';
+    
+    // Reload user data to get updated status from backend
+    try {
+      const userResponse = await userApi.getUser();
+      const userData = userResponse.data;
+      
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+      
+      // Update user in AuthContext with new status
+      if (token && userData) {
+        login(userData, token);
+      }
+      
+      // After password change, status should be APPROVED_CHANGED
+      // If user was changing password for the first time, redirect to home page
+      const wasFirstTimeChange = user && user.status === 'APPROVED_NOT_CHANGED';
+      
+      if (wasFirstTimeChange) {
+        window.location.href = '/';
+      } else {
+        // Otherwise, redirect based on user role
+        if (userData && userData.role === 'admin') {
+          window.location.href = '/admin';
+        } else {
+          window.location.href = '/student';
+        }
+      }
+    } catch (error) {
+      console.error('Error reloading user data:', error);
+      // Fallback: redirect based on current user data
+      if (user && user.status === 'APPROVED_NOT_CHANGED') {
+        window.location.href = '/';
+      } else {
+        if (user && user.role === 'admin') {
+          window.location.href = '/admin';
+        } else {
+          window.location.href = '/student';
+        }
+      }
+    }
   };
 
   const handleCancel = () => {
-    window.location.href = '/student';
+    // If user hasn't changed password for the first time, logout and redirect to login
+    if (user && user.status === 'APPROVED_NOT_CHANGED') {
+      logout();
+      window.location.href = '/login';
+    } else {
+      // Otherwise, redirect based on user role
+      if (user && user.role === 'admin') {
+        window.location.href = '/admin';
+      } else {
+        window.location.href = '/student';
+      }
+    }
   };
 
   return (
@@ -321,9 +373,6 @@ const ExtensionApprovalPageWrapper = () => {
   const handleSuccess = (approvalData) => {
     console.log('Extension approval successful:', approvalData);
     showSuccess('Duyệt đơn gia hạn thành công!');
-    setTimeout(() => {
-      window.location.href = '/admin';
-    }, 1500);
   };
 
   const handleCancel = () => {
@@ -340,23 +389,12 @@ const ExtensionApprovalPageWrapper = () => {
 
 // Room Registration Approval Page Wrapper
 const RoomRegistrationApprovalPageWrapper = () => {
-  const { showSuccess } = useNotification();
-
-  const handleSuccess = (approvalData) => {
-    console.log('Room registration approval successful:', approvalData);
-    showSuccess('Duyệt đơn đăng ký KTX thành công!');
-    setTimeout(() => {
-      window.location.href = '/admin';
-    }, 1500);
-  };
-
   const handleCancel = () => {
     window.location.href = '/admin';
   };
 
   return (
     <RoomRegistrationApprovalPage
-      onSuccess={handleSuccess}
       onCancel={handleCancel}
     />
   );
@@ -369,9 +407,6 @@ const RoomCancellationApprovalPageWrapper = () => {
   const handleSuccess = (approvalData) => {
     console.log('Room cancellation approval successful:', approvalData);
     showSuccess('Duyệt đơn hủy phòng KTX thành công!');
-    setTimeout(() => {
-      window.location.href = '/admin';
-    }, 1500);
   };
 
   const handleCancel = () => {
@@ -388,23 +423,12 @@ const RoomCancellationApprovalPageWrapper = () => {
 
 // Vehicle Registration Approval Page Wrapper
 const VehicleRegistrationApprovalPageWrapper = () => {
-  const { showSuccess } = useNotification();
-
-  const handleSuccess = (approvalData) => {
-    console.log('Vehicle registration approval successful:', approvalData);
-    showSuccess('Duyệt đơn đăng ký xe thành công!');
-    setTimeout(() => {
-      window.location.href = '/admin';
-    }, 1500);
-  };
-
   const handleCancel = () => {
     window.location.href = '/admin';
   };
 
   return (
     <VehicleRegistrationApprovalPage
-      onSuccess={handleSuccess}
       onCancel={handleCancel}
     />
   );
@@ -506,40 +530,9 @@ const ElectricityWaterBillCreationPageWrapper = () => {
   );
 };
 
-// Health Checkup Creation Page Wrapper
-const HealthCheckupAdminPageWrapper = () => {
-
-  // hủy thì quay lại trang admin 
-  const handleCancel = () => {
-    window.location.href = '/admin';
-  };
-
-  return (
-    <HealthCheckListPage
-      onCancel={handleCancel}
-    />
-  );
-};
-
-
-const HealthCheckupCreationPageWrapper = () => {
-  const { showSuccess } = useNotification();
-  const handleSuccess = (healthCheckData) => {
-    console.log('Success:', healthCheckData);
-    showSuccess('Thêm đợt khám thành công!');
-    setTimeout(() => {
-      window.location.href = '/health-checkup-admin';
-    }, 1500);
-  }
-  const handleCancel = () => {
-    window.location.href = '/health-checkup-admin';
-  };
-  return (
-    < HealthCheckupCreationPage
-      onSuccess={handleSuccess}
-      onCancel={handleCancel}
-    />
-  )
+// Health Checkup Management Page Wrapper
+const HealthCheckUpManagementPageWrapper = () => {
+  return <HealthCheckUpManagementPage />;
 }
 
 // Room Management Page Wrapper
@@ -560,29 +553,6 @@ const RoomManagementPageWrapper = () => {
 
   return (
     <RoomManagementPage
-      onSuccess={handleSuccess}
-      onCancel={handleCancel}
-    />
-  );
-};
-
-// UI Components Demo Wrapper
-const UIComponentsDemoWrapper = () => {
-  const { showSuccess } = useNotification();
-
-  const handleSuccess = () => {
-    showSuccess('Demo hoàn thành!');
-    setTimeout(() => {
-      window.location.href = '/admin';
-    }, 1500);
-  };
-
-  const handleCancel = () => {
-    window.location.href = '/admin';
-  };
-
-  return (
-    <UIComponentsDemo
       onSuccess={handleSuccess}
       onCancel={handleCancel}
     />

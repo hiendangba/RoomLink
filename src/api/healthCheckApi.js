@@ -6,6 +6,12 @@ const healthCheckApi = {
     },
     createHealthCheck(data) {
         return axiosClient.post("/healthCheck/createHealthCheck", data);
+    },
+    updateHealthCheck(data) {
+        return axiosClient.put("/healthCheck/updateHealthCheck", data);
+    },
+    registerHealthCheck(data) {
+        return axiosClient.post("/healthCheck/registerHealthCheck", data);
     }
 };
 

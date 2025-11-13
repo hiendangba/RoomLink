@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Button from '../ui/Button';
-import PageLayout from '../ui/PageLayout';
+import PageLayout from '../layout/PageLayout';
 import two_bed from "../../assets/2bed.png";
 import four_bed from "../../assets/4bed.png";
 import six_bed from "../../assets/6bed.png"

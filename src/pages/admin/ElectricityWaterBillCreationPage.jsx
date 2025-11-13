@@ -4,6 +4,7 @@ import Button from '../../components/ui/Button';
 import FileUploadButton from '../../components/ui/FileUploadButton';
 import Pagination from '../../components/ui/Pagination';
 import Select from '../../components/ui/Select';
+import PageLayout from '../../components/layout/PageLayout';
 
 const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
   const { user } = useAuth();
@@ -248,36 +249,13 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
     return `${month}/${year}`;
   };
 
-  if (loading && !showPreview) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="w-full px-4 py-8">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">Tạo hóa đơn điện nước</h1>
-              <p className="text-gray-600 mt-1">
-                Nhập tài liệu điện nước và tự động tạo hóa đơn cho các phòng
-              </p>
-            </div>
-            <Button
-              onClick={onCancel}
-              variant="ghost"
-              size="medium"
-              icon={
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              }
-            />
-          </div>
+    <PageLayout
+      title="Tạo hóa đơn điện nước"
+      subtitle="Nhập tài liệu điện nước và tự động tạo hóa đơn cho các phòng"
+      showClose={true}
+      onClose={onCancel}
+    >
 
           {!showPreview && (
             <div className="mb-8">
@@ -502,9 +480,7 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
               </div>
             </div>
           )}
-        </div>
-      </div>
-    </div>
+    </PageLayout>
   );
 };
 

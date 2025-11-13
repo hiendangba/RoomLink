@@ -39,11 +39,7 @@ const AdminPage = () => {
   };
 
   const handleGoToHealthCheckup = () => {
-    window.location.href = '/health-checkup-admin';
-  };
-
-  const handleUIDemo = () => {
-    window.location.href = '/ui-demo';
+    window.location.href = '/health-checkup-management';
   };
 
   const handleElectricityWaterBillCreation = () => {
@@ -132,10 +128,6 @@ const AdminPage = () => {
               <div className="bg-blue-50 p-6 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors" onClick={handleGoToHealthCheckup}>
                 <h3 className="text-lg font-semibold text-blue-800 mb-2">Khám sức khỏe</h3>
                 <p className="text-blue-600 text-sm">Quản lý đợt khám sức khỏe cho sinh viên</p>
-              </div>
-              <div className="bg-purple-50 p-6 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors" onClick={handleUIDemo}>
-                <h3 className="text-lg font-semibold text-purple-800 mb-2">Demo UI Components</h3>
-                <p className="text-purple-600 text-sm">Xem demo các component UI chuẩn</p>
               </div>
             </div>
           </div>

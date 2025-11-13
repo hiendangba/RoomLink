@@ -1,5 +1,5 @@
 import React from 'react';
-import PageHeader from './PageHeader';
+import PageHeader from '../ui/PageHeader';
 
 const PageLayout = ({
   title,
@@ -16,13 +16,14 @@ const PageLayout = ({
   children,
   className = '',
   headerClassName = '',
-  contentClassName = ''
+  contentClassName = '',
+  headerActions
 }) => {
   return (
     <div className={`min-h-screen bg-gray-50 ${className}`}>
       <div className="w-full px-4 py-8">
         <div className="bg-white rounded-lg shadow-lg p-8">
-          {(title || showBack || showClose || showCancel) && (
+          {(title || showBack || showClose || showCancel || headerActions) && (
             <PageHeader
               title={title}
               subtitle={subtitle}
@@ -36,6 +37,7 @@ const PageLayout = ({
               showClose={showClose}
               showCancel={showCancel}
               className={headerClassName}
+              headerActions={headerActions}
             />
           )}
           
@@ -49,3 +51,4 @@ const PageLayout = ({
 };
 
 export default PageLayout;
+

@@ -1,30 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import Select from '../../components/ui/Select';
 import FileUploadButton from '../../components/ui/FileUploadButton';
-import PageLayout from '../../components/ui/PageLayout';
+import PageLayout from '../../components/layout/PageLayout';
 import RoomSelection from '../../components/room/RoomSelection';
 import { useNotification } from '../../contexts/NotificationContext';
 import ImageEditorModal from '../../components/modal/ImageEditorModal';
-import RoomDetail from "../../components/room/RoomDetail"
 import jsQR from 'jsqr';
-import { authAPI } from "../../api"
+import { authApi } from "../../api"
 const RoomRegistrationPage = () => {
   const [currentStep, setCurrentStep] = useState('room-selection'); // room-selection, personal-info
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [selectedRoomSlot, setSelectedRoomSlot] = useState(null);
 
-  const handleRoomSelected = (room) => {
-    setSelectedRoom(room);
-    setCurrentStep('room-detail');
-  };
-
-
-  const handleRoomSlotSelected = (roomSlot) => {
-    setSelectedRoomSlot(roomSlot);
+  const handleRoomSelected = (data) => {
+    // data contains: { room, slotId, duration }
+    setSelectedRoom(data.room);
+    setSelectedRoomSlot({
+      slotId: data.slotId,
+      duration: data.duration
+    });
     setCurrentStep('personal-info');
   };
+
   const handleCancel = () => {
     window.location.href = '/login';
   };
@@ -32,11 +30,6 @@ const RoomRegistrationPage = () => {
   const handleBackToRoomSelection = () => {
     setCurrentStep('room-selection');
     setSelectedRoom(null);
-  };
-
-
-  const handleBackToRoomDetail = () => {
-    setCurrentStep('room-detail');
     setSelectedRoomSlot(null);
   };
 
@@ -50,24 +43,12 @@ const RoomRegistrationPage = () => {
     );
   }
 
-  if (currentStep === 'room-detail') {
-    return (
-      <RoomDetail
-        room={selectedRoom}
-        onRoomSlotSelected={handleRoomSlotSelected}
-        onBack={handleBackToRoomSelection}
-      />
-    );
-  }
-
-
-
   if (currentStep === 'personal-info') {
     return (
       <PersonalInfoForm
         selectedRoom={selectedRoom}
         selectedRoomSlot={selectedRoomSlot}
-        onBack={handleBackToRoomDetail}
+        onBack={handleBackToRoomSelection}
         onCancel={handleCancel}
       />
     );
@@ -287,8 +268,8 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
       let avatarPath = uploadedPaths.avatarPath;
       if (!cccdPath || !avatarPath) {
         const [cccdResponse, avatarResponse] = await Promise.all([
-          authAPI.checkCCCD(formDataCCCD),
-          authAPI.checkAvatar(formDataAvatar),
+          authApi.checkCCCD(formDataCCCD),
+          authApi.checkAvatar(formDataAvatar),
         ]);
         cccdPath = cccdResponse.data.cccdPath;
         avatarPath = avatarResponse.data.avatarPath;
@@ -307,7 +288,7 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
         avatar: avatarPath,
       };
 
-      const response = await authAPI.register(registrationData);
+      const response = await authApi.register(registrationData);
 
       if (response.success === true) {
         showSuccess("Đăng ký phòng thành công! Hồ sơ của bạn đang được xét duyệt.");
@@ -1015,7 +996,7 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
         title="Thông tin đăng ký KTX"
         subtitle="Vui lòng điền đầy đủ thông tin để hoàn tất đăng ký"
         showBack={true}
-        backText="Quay lại chọn phòng"
+        backText="Quay lại"
         onBack={onBack}
       >
         {/* Selected Room Info */}
@@ -1293,8 +1274,8 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
               name="school"
               type="text"
               value={formData.school}
+              disabled={true}
               required
-              readOnly
             />
           </div>
 
