@@ -9,7 +9,8 @@ const BaseModal = ({
   size = 'medium',
   showCloseButton = true,
   closeOnOverlayClick = true,
-  className = ''
+  className = '',
+  zIndex = 50
 }) => {
   useEffect(() => {
     const handleEscape = (e) => {
@@ -40,22 +41,36 @@ const BaseModal = ({
   };
 
   const handleOverlayClick = (e) => {
-    if (closeOnOverlayClick && e.target === e.currentTarget) {
+    // Nếu click vào container (overlay), đóng modal
+    // Modal content đã có stopPropagation nên click vào modal sẽ không trigger event này
+    if (closeOnOverlayClick) {
       onClose?.();
     }
   };
 
+  const handleModalClick = (e) => {
+    // Ngăn click vào modal content lan ra overlay để không đóng modal
+    e.stopPropagation();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <div 
+      className="fixed inset-0 overflow-y-auto"
+      style={{ zIndex }}
+      onClick={handleOverlayClick}
+    >
+      <div className="flex items-center justify-center min-h-screen px-4 py-4">
         {/* Overlay */}
         <div 
           className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-          onClick={handleOverlayClick}
+          aria-hidden="true"
         />
 
         {/* Modal */}
-        <div className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle ${sizeClasses[size]} w-full ${className}`}>
+        <div 
+          className={`relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all ${sizeClasses[size]} w-full ${className}`}
+          onClick={handleModalClick}
+        >
           {/* Header */}
           {title && (
             <div className="bg-white px-6 py-4 border-b border-gray-200">

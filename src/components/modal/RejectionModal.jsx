@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import Button from './Button';
+import BaseModal, { ModalBody, ModalFooter } from './BaseModal';
+import Button from '../ui/Button';
 
 const RejectionModal = ({ isOpen, onClose, onConfirm, title = "Nhập lý do từ chối", selectedItems = [], onViewDetail, onRemoveItem }) => {
   const [reason, setReason] = useState(''); // Lý do chung
@@ -62,25 +63,15 @@ const RejectionModal = ({ isOpen, onClose, onConfirm, title = "Nhập lý do t�
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
-          <Button
-            onClick={handleClose}
-            variant="ghost"
-            size="small"
-            icon={
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            }
-          />
-        </div>
-
+    <BaseModal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={title}
+      size="medium"
+      closeOnOverlayClick={true}
+    >
+      <ModalBody>
         <div className="mb-4">
           <div className="mb-4">
             <label className="flex items-center space-x-2 mb-3">
@@ -175,27 +166,28 @@ const RejectionModal = ({ isOpen, onClose, onConfirm, title = "Nhập lý do t�
             </div>
           )}
         </div>
+      </ModalBody>
 
-        <div className="flex items-center justify-end space-x-3">
-          <Button
-            onClick={handleClose}
-            variant="outline"
-            disabled={loading}
-          >
-            Hủy
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            variant="danger"
-            loading={loading}
-            loadingText="Đang từ chối..."
-          >
-            Xác nhận từ chối
-          </Button>
-        </div>
-      </div>
-    </div>
+      <ModalFooter>
+        <Button
+          onClick={handleClose}
+          variant="outline"
+          disabled={loading}
+        >
+          Hủy
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="danger"
+          loading={loading}
+          loadingText="Đang từ chối..."
+        >
+          Xác nhận từ chối
+        </Button>
+      </ModalFooter>
+    </BaseModal>
   );
 };
 
 export default RejectionModal;
+

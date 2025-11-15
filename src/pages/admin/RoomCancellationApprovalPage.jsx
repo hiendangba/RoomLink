@@ -4,7 +4,7 @@ import PageHeader from '../../components/ui/PageHeader';
 import Button from '../../components/ui/Button';
 import BaseModal, { ModalBody, ModalFooter } from '../../components/modal/BaseModal';
 import Pagination from '../../components/ui/Pagination';
-import RejectionModal from '../../components/ui/RejectionModal';
+import RejectionModal from '../../components/modal/RejectionModal';
 
 const RoomCancellationApprovalPage = ({ onSuccess, onCancel }) => {
   const { user } = useAuth();

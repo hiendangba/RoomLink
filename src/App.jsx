@@ -195,7 +195,6 @@ const ChangePasswordPageWrapper = () => {
 const ForgotPasswordPageWrapper = () => {
   const handleSuccess = (user) => {
     console.log('Forgot password process completed:', user);
-    alert('Mật khẩu đã được đặt lại thành công! Vui lòng đăng nhập lại.');
     window.location.href = '/login';
   };
 

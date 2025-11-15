@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import Pagination from '../../components/ui/Pagination';
 import Button from '../../components/ui/Button';
-import RejectionModal from '../../components/ui/RejectionModal';
+import RejectionModal from '../../components/modal/RejectionModal';
 
 const RoomTransferApprovalPage = ({ onSuccess, onCancel }) => {
   const { user } = useAuth();

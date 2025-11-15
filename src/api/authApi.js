@@ -24,6 +24,26 @@ const authApi = {
   login(data) {
     return axiosClient.post("/auth/login", data);
   },
+
+  forgotPassword(data) {
+    return axiosClient.post("/auth/forgot-password", data);
+  },
+
+  resendOTP(data) {
+    return axiosClient.post("/auth/resend-otp", data);
+  },
+
+  verifyOTP(data) {
+    return axiosClient.post("/auth/verify-otp", data, {
+      withCredentials: true
+    });
+  },
+
+  resetPassword(data) {
+    return axiosClient.patch("/auth/reset-password", data, {
+      withCredentials: true
+    });
+  },
 };
 
 export default authApi;

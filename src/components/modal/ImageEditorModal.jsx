@@ -409,7 +409,7 @@ const ImageEditorModal = ({
       onClose={onClose}
       title={title}
       size="medium"
-      closeOnOverlayClick={false}
+      closeOnOverlayClick={true}
     >
       <ModalBody>
         <div className="space-y-4">
