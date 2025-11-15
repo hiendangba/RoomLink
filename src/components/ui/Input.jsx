@@ -13,9 +13,7 @@ const Input = ({
   size = 'medium',
   className = '',
   helperText,
-  icon,
-  iconPosition = 'left',
-  variant = 'default', // 'default' or 'search'
+  variant = 'default',
   onClear,
   ...props
 }) => {
@@ -91,34 +89,6 @@ const Input = ({
               </button>
             </div>
           )}
-        </div>
-      );
-    }
-
-    // Default variant với icon tùy chỉnh
-    if (icon) {
-      const iconClasses = iconPosition === 'left' ? 'left-0 pl-3' : 'right-0 pr-3';
-      const inputPadding = iconPosition === 'left' ? 'pl-10' : 'pr-10';
-      
-      return (
-        <div className="relative">
-          <div className={`absolute inset-y-0 ${iconPosition === 'left' ? 'left' : 'right'}-0 flex items-center ${iconClasses}`}>
-            <div className="text-gray-400">
-              {icon}
-            </div>
-          </div>
-          <input
-            id={inputId}
-            name={name}
-            type={type}
-            value={value}
-            onChange={onChange}
-            placeholder={placeholder}
-            required={required}
-            disabled={disabled}
-            className={`${baseInputClasses} ${inputPadding}`}
-            {...props}
-          />
         </div>
       );
     }

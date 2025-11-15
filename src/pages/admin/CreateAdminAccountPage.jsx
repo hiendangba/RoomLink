@@ -1,124 +1,74 @@
-import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNotification } from '../../contexts/NotificationContext';
+import { authApi } from '../../api';
+import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import Select from '../../components/ui/Select';
+import FileUploadButton from '../../components/ui/FileUploadButton';
+import ImageEditorModal from '../../components/modal/ImageEditorModal';
+import InfoBox from '../../components/ui/InfoBox';
+import jsQR from 'jsqr';
 
 const CreateAdminAccountPage = ({ onSuccess, onCancel }) => {
-  const { user } = useAuth();
+  const { showSuccess, showError } = useNotification();
   const [formData, setFormData] = useState({
-    username: '',
+    name: '',
     email: '',
-    password: '',
-    confirmPassword: '',
-    fullName: '',
+    identification: '',
+    dob: '',
+    gender: '',
     phone: '',
-    department: '',
-    position: '',
-    permissions: {
-      studentManagement: false,
-      roomManagement: false,
-      financialManagement: false,
-      systemSettings: false,
-      reportAccess: false
-    }
+    nation: 'Việt Nam',
+    region: 'Không',
+    address: ''
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState('');
+  
+  // Image upload states
+  const [cccdFile, setCccdFile] = useState(null);
+  const [cccdPreview, setCccdPreview] = useState(null);
+  const [editingImage, setEditingImage] = useState(null);
+  const originalFilesRef = useRef({ cccdFront: null });
+  const previewUrlsRef = useRef({ cccdFront: null });
+  
+  // Store temporary file and preview URL when user selects a new file (before confirming)
+  const tempFileRef = useRef({ cccdFront: null });
+  const tempPreviewUrlRef = useRef({ cccdFront: null });
+  
+  // Store temporary preview URL when re-editing existing image (from original file)
+  const tempEditPreviewUrlRef = useRef({ cccdFront: null });
+  
+  const editStateRef = useRef({
+    cccdFront: { zoom: 100, rotate: 0, position: { x: 0, y: 0 }, qrScanArea: null }
+  });
 
-  const departments = [
-    'Phòng Quản lý Ký túc xá',
-    'Phòng Công tác Sinh viên',
-    'Phòng Tài chính',
-    'Phòng Hành chính',
-    'Ban Giám đốc',
-    'Phòng IT'
-  ];
-
-  const positions = [
-    'Trưởng phòng',
-    'Phó trưởng phòng',
-    'Chuyên viên',
-    'Nhân viên',
-    'Giám đốc',
-    'Phó giám đốc',
-    'Quản trị viên hệ thống'
-  ];
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.username.trim()) {
-      newErrors.username = 'Vui lòng nhập tên đăng nhập';
-    } else if (formData.username.length < 3) {
-      newErrors.username = 'Tên đăng nhập phải có ít nhất 3 ký tự';
-    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      newErrors.username = 'Tên đăng nhập chỉ được chứa chữ cái, số và dấu gạch dưới';
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Vui lòng nhập email';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Email không hợp lệ';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Vui lòng nhập mật khẩu';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
-    }
-
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Vui lòng xác nhận mật khẩu';
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Mật khẩu xác nhận không khớp';
-    }
-
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Vui lòng nhập họ và tên';
-    }
-
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Vui lòng nhập số điện thoại';
-    } else if (!/^[0-9]{10,11}$/.test(formData.phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'Số điện thoại không hợp lệ';
-    }
-
-    if (!formData.department) {
-      newErrors.department = 'Vui lòng chọn phòng ban';
-    }
-
-    if (!formData.position) {
-      newErrors.position = 'Vui lòng chọn chức vụ';
-    }
-
-    const hasPermission = Object.values(formData.permissions).some(permission => permission);
-    if (!hasPermission) {
-      newErrors.permissions = 'Vui lòng chọn ít nhất một quyền hạn';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrlsRef.current.cccdFront) {
+        URL.revokeObjectURL(previewUrlsRef.current.cccdFront);
+      }
+      // Cleanup temporary preview URL
+      if (tempPreviewUrlRef.current.cccdFront) {
+        URL.revokeObjectURL(tempPreviewUrlRef.current.cccdFront);
+      }
+      // Cleanup temporary edit preview URL
+      if (tempEditPreviewUrlRef.current.cccdFront) {
+        URL.revokeObjectURL(tempEditPreviewUrlRef.current.cccdFront);
+      }
+    };
+  }, []);
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
 
-    if (name.startsWith('permissions.')) {
-      const permissionKey = name.split('.')[1];
-      setFormData(prev => ({
-        ...prev,
-        permissions: {
-          ...prev.permissions,
-          [permissionKey]: checked
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-
+    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -127,389 +77,653 @@ const CreateAdminAccountPage = ({ onSuccess, onCancel }) => {
     }
   };
 
+  const handleFileChange = (file) => {
+    if (!file) return;
+
+    // Clean up previous temporary file and preview URL if exists
+    if (tempPreviewUrlRef.current.cccdFront) {
+      URL.revokeObjectURL(tempPreviewUrlRef.current.cccdFront);
+      tempPreviewUrlRef.current.cccdFront = null;
+    }
+    tempFileRef.current.cccdFront = null;
+
+    // Reset edit state for new image
+    editStateRef.current.cccdFront = { zoom: 100, rotate: 0, position: { x: 0, y: 0 }, qrScanArea: null };
+
+    // Store file temporarily (not in state yet)
+    tempFileRef.current.cccdFront = file;
+
+    // Create temporary preview URL for modal display only
+    const tempPreviewUrl = URL.createObjectURL(file);
+    tempPreviewUrlRef.current.cccdFront = tempPreviewUrl;
+
+    // Open image editor modal with temporary preview URL
+    setEditingImage({
+      type: 'cccdFront',
+      src: tempPreviewUrl,
+      originalFile: file,
+      isNewFile: true // Flag to indicate this is a new file selection
+    });
+
+    // Clear error
+    if (errors.cccdFront) {
+      setErrors(prev => ({
+        ...prev,
+        cccdFront: ''
+      }));
+    }
+  };
+
+  // Format date from DD/MM/YYYY or DDMMYYYY to YYYY-MM-DD
+  const formatDateForInput = (dateStr) => {
+    if (!dateStr) return '';
+    dateStr = dateStr.trim();
+
+    // Try DDMMYYYY format (8 digits)
+    if (/^\d{8}$/.test(dateStr)) {
+      const day = dateStr.substring(0, 2);
+      const month = dateStr.substring(2, 4);
+      const year = dateStr.substring(4, 8);
+      return `${year}-${month}-${day}`;
+    }
+
+    // Try DD/MM/YYYY format
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const day = parts[0].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[2];
+      return `${year}-${month}-${day}`;
+    }
+
+    // Already YYYY-MM-DD
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return dateStr;
+    }
+
+    return '';
+  };
+
+  // Map gender from Vietnamese to form values
+  const mapGender = (gender) => {
+    const lower = gender.toLowerCase();
+    if (lower.includes('nam') || lower === '1' || lower === 'male') {
+      return 'male';
+    } else if (lower.includes('nữ') || lower.includes('nu') || lower === '0' || lower === 'female') {
+      return 'female';
+    }
+    return '';
+  };
+
+  // Parse QR code data
+  const parseQRCodeData = (qrData) => {
+    // Format: mã cccd|không quan trọng|họ và tên|ngày tháng năm sinh|giới tính|địa chỉ|không quan trọng
+    const parts = qrData.split('|');
+
+    if (parts.length >= 6) {
+      return {
+        identification: parts[0]?.trim() || '',
+        name: parts[2]?.trim() || '',
+        dob: formatDateForInput(parts[3]?.trim() || ''),
+        gender: mapGender(parts[4]?.trim() || ''),
+        address: parts[5]?.trim() || ''
+      };
+    }
+
+    return null;
+  };
+
+  // Scan QR code using jsQR
+  const scanQRWithJsQR = async (imageSource) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      let url;
+      let shouldRevoke = false;
+
+      if (imageSource instanceof File || imageSource instanceof Blob) {
+        url = URL.createObjectURL(imageSource);
+        shouldRevoke = true;
+      } else {
+        url = imageSource;
+      }
+
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+          const scales = [1, 2, 4, 0.5];
+
+          for (const scale of scales) {
+            canvas.width = img.naturalWidth * scale;
+            canvas.height = img.naturalHeight * scale;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+            if (jsQR) {
+              const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: 'dontInvert',
+              });
+
+              if (code && code.data) {
+                if (shouldRevoke) URL.revokeObjectURL(url);
+                resolve(code.data);
+                return;
+              }
+
+              const codeInverted = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: 'attemptBoth',
+              });
+
+              if (codeInverted && codeInverted.data) {
+                if (shouldRevoke) URL.revokeObjectURL(url);
+                resolve(codeInverted.data);
+                return;
+              }
+            }
+          }
+
+          if (shouldRevoke) URL.revokeObjectURL(url);
+          resolve(null);
+        } catch (e) {
+          console.error('jsQR scan error:', e);
+          if (shouldRevoke) URL.revokeObjectURL(url);
+          resolve(null);
+        }
+      };
+
+      img.onerror = () => {
+        if (shouldRevoke) URL.revokeObjectURL(url);
+        resolve(null);
+      };
+
+      img.src = url;
+    });
+  };
+
+  // Crop image to QR area
+  const cropImageToQRArea = async (imageSource, qrArea) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      let url;
+      let shouldRevoke = false;
+
+      if (imageSource instanceof File || imageSource instanceof Blob) {
+        url = URL.createObjectURL(imageSource);
+        shouldRevoke = true;
+      } else {
+        url = imageSource;
+      }
+
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const imgWidth = img.naturalWidth;
+        const imgHeight = img.naturalHeight;
+
+        const qrX = Math.max(0, Math.min(imgWidth, qrArea.x));
+        const qrY = Math.max(0, Math.min(imgHeight, qrArea.y));
+        const qrWidth = Math.min(qrArea.width, imgWidth - qrX);
+        const qrHeight = Math.min(qrArea.height, imgHeight - qrY);
+
+        canvas.width = qrWidth;
+        canvas.height = qrHeight;
+        ctx.imageSmoothingEnabled = false;
+
+        ctx.drawImage(
+          img,
+          qrX, qrY, qrWidth, qrHeight,
+          0, 0, canvas.width, canvas.height
+        );
+
+        canvas.toBlob((blob) => {
+          if (shouldRevoke) URL.revokeObjectURL(url);
+          resolve(blob);
+        }, 'image/png', 1.0);
+      };
+
+      img.onerror = () => {
+        if (shouldRevoke) URL.revokeObjectURL(url);
+        resolve(null);
+      };
+
+      img.src = url;
+    });
+  };
+
+  const handleImageEditConfirm = async (editedBlob, qrScanArea, editState = null) => {
+    if (editingImage && editedBlob) {
+      const editedUrl = URL.createObjectURL(editedBlob);
+
+      // Clean up temporary preview URL if this was a new file selection
+      if (editingImage.isNewFile && tempPreviewUrlRef.current.cccdFront) {
+        URL.revokeObjectURL(tempPreviewUrlRef.current.cccdFront);
+        tempPreviewUrlRef.current.cccdFront = null;
+      }
+
+      // Clean up temporary edit preview URL if re-editing existing image
+      if (!editingImage.isNewFile && tempEditPreviewUrlRef.current.cccdFront) {
+        URL.revokeObjectURL(tempEditPreviewUrlRef.current.cccdFront);
+        tempEditPreviewUrlRef.current.cccdFront = null;
+      }
+
+      // Revoke old preview URL (if editing existing image)
+      if (!editingImage.isNewFile && previewUrlsRef.current.cccdFront) {
+        URL.revokeObjectURL(previewUrlsRef.current.cccdFront);
+      }
+
+      // Get original file: for new file selection, use tempFileRef; for editing existing, use originalFilesRef or cccdFile
+      const originalFile = editingImage.isNewFile 
+        ? tempFileRef.current.cccdFront 
+        : (originalFilesRef.current.cccdFront || cccdFile);
+      const fileName = originalFile ? originalFile.name.replace(/\.[^/.]+$/, '.png') : 'edited_cccd.png';
+
+      const editedFile = new File([editedBlob], fileName, {
+        type: 'image/png',
+        lastModified: Date.now()
+      });
+
+      previewUrlsRef.current.cccdFront = editedUrl;
+
+      // For new file selection, store original file in originalFilesRef
+      if (editingImage.isNewFile && tempFileRef.current.cccdFront) {
+        originalFilesRef.current.cccdFront = tempFileRef.current.cccdFront;
+        tempFileRef.current.cccdFront = null; // Clear temp file
+      }
+
+      if (editState) {
+        editStateRef.current.cccdFront = {
+          zoom: editState.zoom || 100,
+          rotate: editState.rotate || 0,
+          position: editState.position || { x: 0, y: 0 },
+          qrScanArea: editState.qrScanArea || null
+        };
+      }
+
+      setCccdFile(editedFile);
+      setCccdPreview(editedUrl);
+
+      // Scan QR code if QR area is provided
+      if (qrScanArea) {
+        setFormData(prev => ({
+          ...prev,
+          identification: '',
+          name: '',
+          dob: '',
+          gender: '',
+          address: ''
+        }));
+
+        (async () => {
+          try {
+            const originalImageSource = editingImage.originalFile || editingImage.src;
+            const qrCroppedBlob = await cropImageToQRArea(originalImageSource, qrScanArea);
+
+            if (qrCroppedBlob) {
+              const qrData = await scanQRWithJsQR(qrCroppedBlob);
+
+              if (qrData) {
+                const parsedData = parseQRCodeData(qrData);
+                if (parsedData) {
+                  setFormData(prev => ({
+                    ...prev,
+                    ...parsedData
+                  }));
+                  showSuccess('Đã quét và điền thông tin từ mã QR CCCD thành công!');
+                } else {
+                  showError('Không thể phân tích dữ liệu QR code.');
+                }
+              } else {
+                showError('Không quét được mã QR. Vui lòng điều chỉnh khung quét QR và thử lại.');
+              }
+            }
+          } catch (error) {
+            console.error('Error scanning QR code:', error);
+            showError('Lỗi khi quét mã QR. Vui lòng thử lại.');
+          }
+        })();
+      } else {
+        // Fallback: try scanning full image
+        setFormData(prev => ({
+          ...prev,
+          identification: '',
+          name: '',
+          dob: '',
+          gender: '',
+          address: ''
+        }));
+
+        (async () => {
+          try {
+            const qrData = await scanQRWithJsQR(editedBlob);
+            if (qrData) {
+              const parsedData = parseQRCodeData(qrData);
+              if (parsedData) {
+                setFormData(prev => ({
+                  ...prev,
+                  ...parsedData
+                }));
+                showSuccess('Đã quét và điền thông tin từ mã QR CCCD thành công!');
+              } else {
+                showError('Ảnh CCCD mờ, không quét được mã QR. Vui lòng chọn ảnh rõ hơn.');
+              }
+            } else {
+              showError('Ảnh CCCD mờ, không quét được mã QR. Vui lòng chọn ảnh rõ hơn.');
+            }
+          } catch (error) {
+            console.error('Error scanning QR code:', error);
+            showError('Ảnh CCCD mờ, không quét được mã QR. Vui lòng chọn ảnh rõ hơn.');
+          }
+        })();
+      }
+
+      setEditingImage(null);
+    }
+  };
+
+  const handleImageEditCancel = () => {
+    if (!editingImage) return;
+    
+    // If this was a new file selection (not editing existing), clean up temp file and preview
+    if (editingImage.isNewFile) {
+      // Revoke temporary preview URL
+      if (tempPreviewUrlRef.current.cccdFront) {
+        URL.revokeObjectURL(tempPreviewUrlRef.current.cccdFront);
+        tempPreviewUrlRef.current.cccdFront = null;
+      }
+      
+      // Clear temporary file
+      tempFileRef.current.cccdFront = null;
+    } else {
+      // If re-editing existing image, clean up temp edit preview URL
+      if (tempEditPreviewUrlRef.current.cccdFront) {
+        URL.revokeObjectURL(tempEditPreviewUrlRef.current.cccdFront);
+        tempEditPreviewUrlRef.current.cccdFront = null;
+      }
+    }
+    
+    // Close modal
+    setEditingImage(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) {
-      return;
-    }
-
     setLoading(true);
     setErrors({});
-    setSuccess('');
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const response = await authApi.registerAdmin(formData);
+      
+      const message = response.data?.message || 'Tạo tài khoản Admin thành công!';
+      showSuccess(message);
 
-      const existingAdmins = JSON.parse(localStorage.getItem('adminAccounts') || '[]');
-      const usernameExists = existingAdmins.some(admin => admin.username === formData.username);
-
-      if (usernameExists) {
-        throw new Error('Tài khoản đã tồn tại');
-      }
-
-      const emailExists = existingAdmins.some(admin => admin.email === formData.email);
-
-      if (emailExists) {
-        throw new Error('Email đã được sử dụng');
-      }
-
-      const newAdmin = {
-        id: `ADMIN${Date.now()}`,
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-        fullName: formData.fullName,
-        phone: formData.phone,
-        department: formData.department,
-        position: formData.position,
-        permissions: formData.permissions,
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        createdBy: user?.id || 'Admin001',
-        lastLogin: null,
-        role: 'admin'
-      };
-
-      existingAdmins.push(newAdmin);
-      localStorage.setItem('adminAccounts', JSON.stringify(existingAdmins));
-
-      setSuccess('Tạo tài khoản thành công!');
-
+      // Reset form
       setFormData({
-        username: '',
+        name: '',
         email: '',
-        password: '',
-        confirmPassword: '',
-        fullName: '',
+        identification: '',
+        dob: '',
+        gender: '',
         phone: '',
-        department: '',
-        position: '',
-        permissions: {
-          studentManagement: false,
-          roomManagement: false,
-          financialManagement: false,
-          systemSettings: false,
-          reportAccess: false
-        }
+        nation: 'Việt Nam',
+        region: 'Không',
+        address: ''
       });
 
-      setTimeout(() => {
-        if (onSuccess) {
-          onSuccess(newAdmin);
-        }
-      }, 2000);
+      // Reset image
+      if (previewUrlsRef.current.cccdFront) {
+        URL.revokeObjectURL(previewUrlsRef.current.cccdFront);
+      }
+      setCccdFile(null);
+      setCccdPreview(null);
+      originalFilesRef.current.cccdFront = null;
 
+      // Call onSuccess callback after a short delay
+      if (onSuccess) {
+        setTimeout(() => {
+          onSuccess(response.data?.data);
+        }, 1500);
+      }
     } catch (error) {
-      setErrors({ general: error.message });
+      console.error('Error creating admin account:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.errors?.[0]?.message ||
+                          error.message || 
+                          'Có lỗi xảy ra khi tạo tài khoản Admin. Vui lòng thử lại.';
+      showError(errorMessage);
+      
+      // Set field-specific errors if available
+      if (error.response?.data?.errors) {
+        const fieldErrors = {};
+        error.response.data.errors.forEach(err => {
+          if (err.path && err.path.length > 0) {
+            fieldErrors[err.path[0]] = err.message;
+          }
+        });
+        setErrors(fieldErrors);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancel = () => {
-    if (onCancel) {
-      onCancel();
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="w-full px-4 py-8">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">Tạo tài khoản Admin</h1>
-              <p className="text-gray-600 mt-1">Tạo tài khoản quản trị viên mới cho hệ thống</p>
-            </div>
-            <Button
-              onClick={handleCancel}
-              variant="ghost"
-              size="small"
+    <>
+      <ImageEditorModal
+        isOpen={!!editingImage}
+        onClose={handleImageEditCancel}
+        imageSrc={editingImage?.src}
+        imageType="cccd"
+        onConfirm={(blob, qrScanArea, editState) => handleImageEditConfirm(blob, qrScanArea, editState)}
+        title="Chỉnh sửa ảnh CCCD"
+        initialZoom={editStateRef.current.cccdFront?.zoom || 100}
+        initialRotate={editStateRef.current.cccdFront?.rotate || 0}
+        initialPosition={editStateRef.current.cccdFront?.position || { x: 0, y: 0 }}
+        initialQrScanArea={editStateRef.current.cccdFront?.qrScanArea || null}
+      />
+      <PageLayout
+        title="Tạo tài khoản Admin"
+        subtitle="Tạo tài khoản quản trị viên mới cho hệ thống"
+        showClose={true}
+        onClose={onCancel}
+        className="bg-white"
+      >
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* CCCD Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Ảnh mặt trước CCCD (Tùy chọn - để tự động điền thông tin)
+            </label>
+            <FileUploadButton
+              accept="image/*"
+              onChange={handleFileChange}
               icon={
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               }
-            />
+            >
+              {cccdFile ? cccdFile.name : 'Chọn ảnh CCCD'}
+            </FileUploadButton>
+            {cccdPreview && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-green-600 font-medium">✓ Đã chọn: {cccdFile.name}</p>
+                  <Button
+                    variant="outline"
+                    size="small"
+                    onClick={() => {
+                      // Clean up previous temp edit preview URL if exists
+                      if (tempEditPreviewUrlRef.current.cccdFront) {
+                        URL.revokeObjectURL(tempEditPreviewUrlRef.current.cccdFront);
+                      }
+                      
+                      // Always use original file when re-editing to preserve quality
+                      const originalFile = originalFilesRef.current.cccdFront || cccdFile;
+                      if (!originalFile) return;
+                      
+                      // Create temporary preview URL from original file for editing
+                      const tempEditPreviewUrl = URL.createObjectURL(originalFile);
+                      tempEditPreviewUrlRef.current.cccdFront = tempEditPreviewUrl;
+                      
+                      const editState = editStateRef.current.cccdFront;
+                      setEditingImage({
+                        type: 'cccdFront',
+                        src: tempEditPreviewUrl, // Use original file preview URL
+                        originalFile: originalFile,
+                        editState: editState, // Pass edit state to restore zoom, rotate, position
+                        isNewFile: false // Flag to indicate this is editing existing image
+                      });
+                    }}
+                  >
+                    Chỉnh sửa
+                  </Button>
+                </div>
+                <div className="relative border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
+                  <img
+                    src={cccdPreview}
+                    alt="Preview CCCD"
+                    className="w-full h-auto max-h-64 object-contain"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          {success && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center">
-                <svg className="w-5 h-5 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-green-800 font-medium">{success}</span>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Input
+              label="Họ và tên"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              placeholder="Nhập họ và tên hoặc quét QR từ CCCD"
+              error={errors.name}
+              required
+            />
+
+            <Input
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              placeholder="Nhập email"
+              error={errors.email}
+              required
+            />
+
+            <Input
+              label="CCCD/CMND"
+              name="identification"
+              value={formData.identification}
+              onChange={handleInputChange}
+              placeholder="Nhập 12 số CCCD hoặc quét QR từ CCCD"
+              error={errors.identification}
+              required
+            />
+
+            <Input
+              label="Ngày sinh"
+              name="dob"
+              type="date"
+              value={formData.dob}
+              onChange={handleInputChange}
+              placeholder="Chọn ngày sinh hoặc quét QR từ CCCD"
+              error={errors.dob}
+              required
+            />
+
+            <Select
+              label="Giới tính"
+              name="gender"
+              value={formData.gender}
+              onChange={handleInputChange}
+              error={errors.gender}
+              required
+            >
+              <option value="">Chọn giới tính hoặc quét QR từ CCCD</option>
+              <option value="male">Nam</option>
+              <option value="female">Nữ</option>
+              <option value="other">Khác</option>
+            </Select>
+
+            <Input
+              label="Số điện thoại"
+              name="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={handleInputChange}
+              placeholder="Nhập số điện thoại (0xxxxxxxxx)"
+              error={errors.phone}
+              required
+            />
+
+            <Input
+              label="Quốc tịch"
+              name="nation"
+              value={formData.nation}
+              onChange={handleInputChange}
+              placeholder="Nhập quốc tịch"
+              error={errors.nation}
+              required
+            />
+
+            <Input
+              label="Tôn giáo"
+              name="region"
+              value={formData.region}
+              onChange={handleInputChange}
+              placeholder="Nhập tôn giáo"
+              error={errors.region}
+              required
+            />
+
+            <div className="md:col-span-2">
+              <Input
+                label="Địa chỉ"
+                name="address"
+                value={formData.address}
+                onChange={handleInputChange}
+                placeholder="Nhập địa chỉ hoặc quét QR từ CCCD"
+                error={errors.address}
+                required
+              />
             </div>
-          )}
+          </div>
 
-          {errors.general && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <div className="flex items-center">
-                <svg className="w-5 h-5 text-red-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-red-800 font-medium">{errors.general}</span>
-              </div>
-            </div>
-          )}
+          <InfoBox
+            type="info"
+            title="Lưu ý:"
+            messages={[
+              <>Mật khẩu mặc định cho tài khoản Admin là <strong>123456</strong>. Người dùng nên đổi mật khẩu sau khi đăng nhập lần đầu.</>,
+              'Bạn có thể tải ảnh CCCD để tự động điền thông tin từ mã QR.'
+            ]}
+          />
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Thông tin tài khoản</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tên đăng nhập <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.username ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Nhập tên đăng nhập"
-                  />
-                  {errors.username && (
-                    <p className="mt-1 text-sm text-red-600">{errors.username}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.email ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Nhập email"
-                  />
-                  {errors.email && (
-                    <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mật khẩu <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.password ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Nhập mật khẩu"
-                  />
-                  {errors.password && (
-                    <p className="mt-1 text-sm text-red-600">{errors.password}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Xác nhận mật khẩu <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Nhập lại mật khẩu"
-                  />
-                  {errors.confirmPassword && (
-                    <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Thông tin cá nhân</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Họ và tên <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="fullName"
-                    value={formData.fullName}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.fullName ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Nhập họ và tên"
-                  />
-                  {errors.fullName && (
-                    <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Số điện thoại <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.phone ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Nhập số điện thoại"
-                  />
-                  {errors.phone && (
-                    <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phòng ban <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="department"
-                    value={formData.department}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.department ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Chọn phòng ban</option>
-                    {departments.map((dept) => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                  {errors.department && (
-                    <p className="mt-1 text-sm text-red-600">{errors.department}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Chức vụ <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="position"
-                    value={formData.position}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.position ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Chọn chức vụ</option>
-                    {positions.map((pos) => (
-                      <option key={pos} value={pos}>{pos}</option>
-                    ))}
-                  </select>
-                  {errors.position && (
-                    <p className="mt-1 text-sm text-red-600">{errors.position}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Quyền hạn</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    name="permissions.studentManagement"
-                    checked={formData.permissions.studentManagement}
-                    onChange={handleInputChange}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Quản lý sinh viên</span>
-                </label>
-
-                <label className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    name="permissions.roomManagement"
-                    checked={formData.permissions.roomManagement}
-                    onChange={handleInputChange}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Quản lý phòng</span>
-                </label>
-
-                <label className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    name="permissions.financialManagement"
-                    checked={formData.permissions.financialManagement}
-                    onChange={handleInputChange}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Quản lý tài chính</span>
-                </label>
-
-                <label className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    name="permissions.systemSettings"
-                    checked={formData.permissions.systemSettings}
-                    onChange={handleInputChange}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Cài đặt hệ thống</span>
-                </label>
-
-                <label className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    name="permissions.reportAccess"
-                    checked={formData.permissions.reportAccess}
-                    onChange={handleInputChange}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Truy cập báo cáo</span>
-                </label>
-              </div>
-              {errors.permissions && (
-                <p className="mt-2 text-sm text-red-600">{errors.permissions}</p>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end space-x-4 pt-6 border-t">
-              <Button
-                type="button"
-                onClick={handleCancel}
-                variant="outline"
-              >
-                Hủy
-              </Button>
-              <Button
-                type="submit"
-                disabled={loading}
-                loading={loading}
-                loadingText="Đang tạo..."
-                variant="primary"
-              >
-                Tạo tài khoản
-              </Button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+          <div className="flex items-center justify-end space-x-4 pt-6 border-t">
+            <Button
+              type="button"
+              onClick={onCancel}
+              variant="outline"
+              disabled={loading}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={loading}
+              loading={loading}
+              loadingText="Đang tạo..."
+            >
+              Tạo tài khoản
+            </Button>
+          </div>
+        </form>
+      </PageLayout>
+    </>
   );
 };
 

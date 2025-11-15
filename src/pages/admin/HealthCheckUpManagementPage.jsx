@@ -7,12 +7,71 @@ import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
 import PageLayout from "../../components/layout/PageLayout";
 import LoadingState from "../../components/ui/LoadingState";
+import Pagination from "../../components/ui/Pagination";
+import BaseModal, { ModalBody } from "../../components/modal/BaseModal";
+
+// Parse backend date format (dd-mm-yyyy HH:mm:ss) to Date object
+const parseBackendDate = (dateString) => {
+    // Handle null, undefined, empty string, or "-"
+    if (!dateString || dateString === "-" || dateString === "null" || dateString === "undefined") {
+        return null;
+    }
+    
+    // Ensure it's a string
+    const str = String(dateString).trim();
+    if (!str || str === "-") {
+        return null;
+    }
+    
+    try {
+        // Backend format: "dd-mm-yyyy HH:mm:ss" (e.g., "01-11-2025 20:22:00")
+        // Try parsing backend format first since that's what backend returns
+        const backendFormatMatch = str.match(/^(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/);
+        if (backendFormatMatch) {
+            const [, day, month, year, hours, minutes] = backendFormatMatch;
+            // Validate date components
+            const dayNum = parseInt(day, 10);
+            const monthNum = parseInt(month, 10);
+            const yearNum = parseInt(year, 10);
+            const hoursNum = parseInt(hours, 10);
+            const minutesNum = parseInt(minutes, 10);
+            
+            if (dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12 || 
+                hoursNum > 23 || minutesNum > 59 || minutesNum < 0) {
+                console.warn("Invalid date components:", { day, month, year, hours, minutes });
+                return null;
+            }
+            
+            // Create date in local timezone: YYYY-MM-DDTHH:mm:ss
+            const dateStr = `${year}-${month}-${day}T${hours}:${minutes}:00`;
+            const date = new Date(dateStr);
+            
+            if (!isNaN(date.getTime())) {
+                return date;
+            }
+        }
+        
+        // Fallback: Try parsing as ISO string or any other format
+        const date = new Date(str);
+        if (!isNaN(date.getTime())) {
+            return date;
+        }
+        
+        return null;
+    } catch (e) {
+        console.error("Error parsing date:", dateString, e);
+        return null;
+    }
+};
 
 // Format date to Vietnamese format (dd/mm/yyyy HH:mm)
 const formatDate = (dateString) => {
-    if (!dateString) return "";
+    if (!dateString) return "-";
     try {
-        const date = new Date(dateString);
+        const date = parseBackendDate(dateString);
+        if (!date || isNaN(date.getTime())) {
+            return "-";
+        }
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
         const year = date.getFullYear();
@@ -20,60 +79,93 @@ const formatDate = (dateString) => {
         const minutes = String(date.getMinutes()).padStart(2, "0");
         return `${day}/${month}/${year} ${hours}:${minutes}`;
     } catch (e) {
-        return dateString;
+        return "-";
+    }
+};
+
+// Helper function to get status display
+const getStatusDisplay = (status) => {
+    switch (status) {
+        case 'active':
+            return { text: 'Hoạt động', className: 'bg-green-100 text-green-800 border-green-200' };
+        case 'inactive':
+            return { text: 'Tạm dừng', className: 'bg-gray-100 text-gray-800 border-gray-200' };
+        default:
+            return { text: status || 'Chưa xác định', className: 'bg-gray-100 text-gray-800 border-gray-200' };
     }
 };
 
 // HealthCheckCard component
-const HealthCheckCard = ({ healthCheck, onEdit, onDelete }) => {
+const HealthCheckCard = ({ healthCheck, onViewDetail, onEdit, onDelete }) => {
+    const statusDisplay = getStatusDisplay(healthCheck.status);
+    
     return (
-        <div className="border rounded-xl shadow p-4 mb-4 hover:shadow-lg transition">
-            {/* Header: tiêu đề */}
-            <div className="mb-2">
-                <h2 className="text-xl font-semibold">{healthCheck.title}</h2>
+        <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+            {/* Header: tiêu đề và trạng thái */}
+            <div className="flex items-center justify-between mb-4">
+                <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{healthCheck.title}</h3>
+                    <p className="text-sm text-gray-500">{healthCheck.buildingName || 'Chưa xác định'}</p>
+                </div>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusDisplay.className}`}>
+                    {statusDisplay.text}
+                </span>
             </div>
 
             {/* Nội dung */}
-            <p className="text-gray-700 mb-1">{healthCheck.description}</p>
-            <p className="text-gray-600 mb-1">
-                <strong>Tòa nhà:</strong> {healthCheck.buildingName}
-            </p>
-            <p className="text-gray-600 mb-1">
-                <strong>Thời gian:</strong> {formatDate(healthCheck.startDate)} → {formatDate(healthCheck.endDate)}
-            </p>
-            <p className="text-gray-600 mb-1">
-                <strong>Sức chứa:</strong> {healthCheck.capacity} |{" "}
-                <strong>Đã đăng ký:</strong> {healthCheck.registeredCount}
-            </p>
-            <p className="text-gray-600 mb-1">
-                <strong>Phí:</strong>{" "}
-                {new Intl.NumberFormat("vi-VN", {
-                    style: "currency",
-                    currency: "VND",
-                    minimumFractionDigits: 0,
-                }).format(healthCheck.price)}
-            </p>
-            <p className="text-gray-600 mb-3">
-                <strong>Thời gian đăng ký:</strong> {formatDate(healthCheck.registrationStartDate)} →{" "}
-                {formatDate(healthCheck.registrationEndDate)}
-            </p>
+            <div className="space-y-2 mb-4">
+                <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Thời gian:</span>
+                    <span className="text-sm font-medium">{formatDate(healthCheck.startDate)} → {formatDate(healthCheck.endDate)}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Sức chứa:</span>
+                    <span className="text-sm font-medium">{healthCheck.registeredCount}/{healthCheck.capacity}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Phí:</span>
+                    <span className="text-sm font-medium text-green-600">
+                        {new Intl.NumberFormat("vi-VN", {
+                            style: "currency",
+                            currency: "VND",
+                            minimumFractionDigits: 0,
+                        }).format(healthCheck.price)}
+                    </span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Đăng ký:</span>
+                    <span className="text-sm font-medium">{formatDate(healthCheck.registrationStartDate)} → {formatDate(healthCheck.registrationEndDate)}</span>
+                </div>
+            </div>
 
             {/* Hàng nút hành động */}
-            <div className="flex justify-end gap-3 pt-2 border-t mt-2">
-                <Button
-                    variant="primary"
-                    size="small"
-                    onClick={() => onEdit(healthCheck)}
-                >
-                    Chỉnh sửa
-                </Button>
-                <Button
-                    variant="danger"
-                    size="small"
-                    onClick={() => onDelete(healthCheck)}
-                >
-                    Xóa
-                </Button>
+            <div className="flex items-center justify-between pt-2 border-t">
+                <div className="flex space-x-2">
+                    <Button
+                        onClick={() => onViewDetail(healthCheck)}
+                        variant="outline"
+                        size="small"
+                        className="px-3 py-1 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200"
+                    >
+                        Chi tiết
+                    </Button>
+                    <Button
+                        onClick={() => onEdit(healthCheck)}
+                        variant="outline"
+                        size="small"
+                        className="px-3 py-1 text-xs bg-green-100 text-green-700 hover:bg-green-200"
+                    >
+                        Sửa
+                    </Button>
+                    <Button
+                        onClick={() => onDelete(healthCheck)}
+                        variant="outline"
+                        size="small"
+                        className="px-3 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200"
+                    >
+                        Xóa
+                    </Button>
+                </div>
             </div>
         </div>
     );
@@ -87,10 +179,16 @@ const HealthCheckUpManagementPage = () => {
     // View state: 'list' or 'form'
     const [currentView, setCurrentView] = useState('list');
     const [selectedHealthCheck, setSelectedHealthCheck] = useState(null);
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [selectedHealthCheckDetail, setSelectedHealthCheckDetail] = useState(null);
 
     // List view state
     const [healthChecks, setHealthChecks] = useState([]);
     const [listLoading, setListLoading] = useState(true);
+    const [statusFilter, setStatusFilter] = useState(""); // "" = all, "active", "inactive"
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(8);
+    const [totalItems, setTotalItems] = useState(0);
 
     // Form view state
     const [formLoading, setFormLoading] = useState(false);
@@ -123,12 +221,23 @@ const HealthCheckUpManagementPage = () => {
     }, []);
 
     // Fetch health checks
-    const fetchHealthChecks = async () => {
+    const fetchHealthChecks = async (status = null, page = 1) => {
         try {
             setListLoading(true);
-            const response = await healthCheckApi.getHealthChecks();
+            const params = {
+                page: page,
+                limit: itemsPerPage,
+            };
+            if (status) {
+                params.status = status;
+            }
+            const response = await healthCheckApi.getHealthChecks(params);
             if (response.success && response.data) {
                 setHealthChecks(response.data);
+                // Get totalItems from response metadata
+                if (response.metadata && response.metadata.totalItems !== undefined) {
+                    setTotalItems(response.metadata.totalItems);
+                }
             }
         } catch (err) {
             console.log(err.response?.data?.message || err.message);
@@ -138,27 +247,94 @@ const HealthCheckUpManagementPage = () => {
         }
     };
 
-    // Load health checks when in list view
+    // Load health checks when in list view, status filter, or page changes
     useEffect(() => {
         if (currentView === 'list') {
-            fetchHealthChecks();
+            fetchHealthChecks(statusFilter || null, currentPage);
         }
-    }, [currentView]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentView, statusFilter, currentPage]);
+
+    // Reset to page 1 when filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [statusFilter]);
+
+    // Convert backend date string (dd-mm-yyyy HH:mm:ss) to datetime-local format (YYYY-MM-DDTHH:mm)
+    // Returns undefined (not empty string) for invalid values to avoid "value contains an invalid value" error
+    const toDateTimeLocal = (dateString) => {
+        // Handle null, undefined, empty, or "-"
+        if (!dateString || dateString === "-" || dateString === "null" || dateString === "undefined") {
+            return undefined; // Return undefined instead of "" for datetime-local inputs
+        }
+        
+        try {
+            const date = parseBackendDate(dateString);
+            if (!date || isNaN(date.getTime())) {
+                // Don't log warning for empty values, only for invalid formats
+                if (dateString && dateString.trim() !== "" && dateString !== "-") {
+                    console.warn("Invalid date string for datetime-local:", dateString);
+                }
+                return undefined; // Return undefined instead of ""
+            }
+            
+            // Get local date components (not UTC)
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+            const hours = String(date.getHours()).padStart(2, "0");
+            const minutes = String(date.getMinutes()).padStart(2, "0");
+            
+            const result = `${year}-${month}-${day}T${hours}:${minutes}`;
+            
+            // Validate the result format (YYYY-MM-DDTHH:mm)
+            if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(result)) {
+                console.warn("Invalid datetime-local format generated:", result, "from:", dateString);
+                return undefined; // Return undefined instead of ""
+            }
+            
+            return result;
+        } catch (e) {
+            console.error("Error converting date to datetime-local:", dateString, e);
+            return undefined; // Return undefined instead of ""
+        }
+    };
 
     // Handle edit - switch to form view
     const handleEdit = (healthCheck) => {
         setSelectedHealthCheck(healthCheck);
+        // Convert dates - toDateTimeLocal returns undefined for invalid values
+        // Use undefined (not empty string) for datetime-local inputs to avoid "value contains an invalid value" error
+        const startDateValue = toDateTimeLocal(healthCheck?.startDate);
+        const endDateValue = toDateTimeLocal(healthCheck?.endDate);
+        const regStartDateValue = toDateTimeLocal(healthCheck?.registrationStartDate);
+        const regEndDateValue = toDateTimeLocal(healthCheck?.registrationEndDate);
+        
+        // Log for debugging
+        console.log("Editing health check:", {
+            rawData: healthCheck,
+            startDate: healthCheck?.startDate,
+            startDateValue,
+            endDate: healthCheck?.endDate,
+            endDateValue,
+            registrationStartDate: healthCheck?.registrationStartDate,
+            regStartDateValue,
+            registrationEndDate: healthCheck?.registrationEndDate,
+            regEndDateValue
+        });
+        
         setFormData({
-            buildingId: healthCheck.buildingId || "",
-            title: healthCheck.title || "",
-            description: healthCheck.description || "",
-            startDate: healthCheck.startDate ? new Date(healthCheck.startDate).toISOString().slice(0, 16) : "",
-            endDate: healthCheck.endDate ? new Date(healthCheck.endDate).toISOString().slice(0, 16) : "",
-            registrationStartDate: healthCheck.registrationStartDate ? new Date(healthCheck.registrationStartDate).toISOString().slice(0, 16) : "",
-            registrationEndDate: healthCheck.registrationEndDate ? new Date(healthCheck.registrationEndDate).toISOString().slice(0, 16) : "",
-            capacity: healthCheck.capacity || "",
-            price: healthCheck.price || "",
-            status: healthCheck.status || "active",
+            buildingId: healthCheck?.buildingId || "",
+            title: healthCheck?.title || "",
+            description: healthCheck?.description || "",
+            // For datetime-local, use undefined (not empty string) to avoid "value contains an invalid value" error
+            startDate: startDateValue || undefined,
+            endDate: endDateValue || undefined,
+            registrationStartDate: regStartDateValue || undefined,
+            registrationEndDate: regEndDateValue || undefined,
+            capacity: healthCheck?.capacity || "",
+            price: healthCheck?.price || "",
+            status: healthCheck?.status || "active",
         });
         setCurrentView('form');
     };
@@ -182,12 +358,42 @@ const HealthCheckUpManagementPage = () => {
         setCurrentView('form');
     };
 
+    // Handle view detail
+    const handleViewDetail = async (healthCheck) => {
+        try {
+            setListLoading(true);
+            const response = await healthCheckApi.getHealthCheckById(healthCheck.id);
+            if (response.success && response.data) {
+                setSelectedHealthCheckDetail(response.data);
+                setShowDetailModal(true);
+            }
+        } catch (err) {
+            showError(err?.response?.data?.message || "Lỗi khi tải chi tiết đợt khám");
+            console.error(err);
+        } finally {
+            setListLoading(false);
+        }
+    };
+
     // Handle delete
-    const handleDelete = (healthCheck) => {
-        if (window.confirm(`Bạn có chắc chắn muốn xóa đợt khám "${healthCheck.title}"?`)) {
-            console.log("Xóa đợt khám này", healthCheck.id);
-            // TODO: Implement delete API call
-            showError("Chức năng xóa chưa được triển khai");
+    const handleDelete = async (healthCheck) => {
+        try {
+            setListLoading(true);
+            const res = await healthCheckApi.deleteHealthCheck(healthCheck.id);
+            if (res.success) {
+                showSuccess("Xóa đợt khám thành công!");
+                // After delete, if no status filter, default to showing only active items
+                // If there's a status filter, keep it
+                const filterToUse = statusFilter || null;
+                // If we're on a page that might now be empty, go to page 1
+                const pageToUse = currentPage;
+                fetchHealthChecks(filterToUse, pageToUse);
+            }
+        } catch (err) {
+            showError(err?.response?.data?.message || "Lỗi khi xóa đợt khám");
+            console.error(err);
+        } finally {
+            setListLoading(false);
         }
     };
 
@@ -207,55 +413,18 @@ const HealthCheckUpManagementPage = () => {
     const toISOStringWithOffset = (localString) => {
         if (!localString) return null;
         const date = new Date(localString);
-        return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString();
+        return new Date(date.getTime()).toISOString();
     };
 
     // Handle input change
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
-        if (validationErrors[name]) {
-            setValidationErrors((prev) => ({ ...prev, [name]: "" }));
-        }
-    };
-
-    // Validate form
-    const validateForm = () => {
-        const errors = {};
-
-        if (!formData.title.trim()) errors.title = "Vui lòng nhập tên đợt khám";
-        if (!formData.description.trim()) errors.description = "Vui lòng nhập mô tả";
-        if (!formData.buildingId) errors.buildingId = "Vui lòng chọn tòa nhà";
-        if (!formData.startDate) errors.startDate = "Chưa chọn ngày bắt đầu";
-        if (!formData.endDate) errors.endDate = "Chưa chọn ngày kết thúc";
-        if (!formData.registrationStartDate)
-            errors.registrationStartDate = "Chưa chọn ngày bắt đầu đăng ký";
-        if (!formData.registrationEndDate)
-            errors.registrationEndDate = "Chưa chọn ngày kết thúc đăng ký";
-        if (!formData.capacity || Number(formData.capacity) <= 0)
-            errors.capacity = "Sức chứa phải lớn hơn 0";
-        if (formData.price === "" || Number(formData.price) < 0)
-            errors.price = "Phí phải là số hợp lệ";
-
-        const sd = new Date(formData.startDate);
-        const ed = new Date(formData.endDate);
-        const rsd = new Date(formData.registrationStartDate);
-        const red = new Date(formData.registrationEndDate);
-
-        if (sd && ed && sd >= ed) errors.endDate = "Ngày kết thúc phải sau ngày bắt đầu";
-        if (rsd && red && rsd >= red)
-            errors.registrationEndDate = "Ngày kết thúc đăng ký phải sau ngày bắt đầu đăng ký";
-        if (red && sd && red >= sd)
-            errors.registrationEndDate = "Ngày kết thúc đăng ký phải trước ngày bắt đầu khám";
-
-        setValidationErrors(errors);
-        return Object.keys(errors).length === 0;
     };
 
     // Submit form
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!validateForm()) return;
 
         const payload = {
             buildingId: formData.buildingId,
@@ -300,10 +469,110 @@ const HealthCheckUpManagementPage = () => {
             minimumFractionDigits: 0,
         }).format(amount);
 
+    // Pagination calculations using backend totalItems
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
+
+    // Detail Modal
+    const renderDetailModal = () => {
+        if (!selectedHealthCheckDetail) return null;
+
+        const hc = selectedHealthCheckDetail;
+        const statusDisplay = getStatusDisplay(hc.status);
+
+        return (
+            <BaseModal
+                isOpen={showDetailModal}
+                onClose={() => setShowDetailModal(false)}
+                title="Chi tiết đợt khám sức khỏe"
+                size="xlarge"
+                closeOnOverlayClick={true}
+                className="max-h-[105vh] overflow-y-auto"
+                zIndex={60}
+            >
+                <ModalBody className="max-h-[calc(105vh-200px)] overflow-y-auto">
+                    <div className="space-y-6">
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-800 mb-3">Thông tin cơ bản</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Tên đợt khám</label>
+                                    <p className="text-gray-900">{hc.title}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Tòa nhà</label>
+                                    <p className="text-gray-900">{hc.buildingName || 'Chưa xác định'}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Trạng thái</label>
+                                    <p className="text-gray-900">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusDisplay.className}`}>
+                                            {statusDisplay.text}
+                                        </span>
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Sức chứa</label>
+                                    <p className="text-gray-900">{hc.registeredCount}/{hc.capacity}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Phí</label>
+                                    <p className="text-gray-900 text-green-600">
+                                        {new Intl.NumberFormat("vi-VN", {
+                                            style: "currency",
+                                            currency: "VND",
+                                            minimumFractionDigits: 0,
+                                        }).format(hc.price)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-800 mb-3">Thời gian</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Thời gian khám</label>
+                                    <p className="text-gray-900">
+                                        {formatDate(hc.startDate)} → {formatDate(hc.endDate)}
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Thời gian đăng ký</label>
+                                    <p className="text-gray-900">
+                                        {formatDate(hc.registrationStartDate)} → {formatDate(hc.registrationEndDate)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-800 mb-3">Mô tả</h3>
+                            <p className="text-gray-900 whitespace-pre-wrap">
+                                {hc.description || 'Không có mô tả'}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div className="flex justify-end pt-4 border-t border-gray-200">
+                        <Button onClick={() => setShowDetailModal(false)} variant="outline">
+                            Đóng
+                        </Button>
+                    </div>
+                </ModalBody>
+            </BaseModal>
+        );
+    };
+
     // Render list view
     if (currentView === 'list') {
         return (
-            <PageLayout
+            <>
+                {renderDetailModal()}
+                <PageLayout
                 title="Quản lý đợt khám sức khỏe"
                 subtitle="Quản lý các đợt khám sức khỏe cho sinh viên"
                 showClose={true}
@@ -323,39 +592,74 @@ const HealthCheckUpManagementPage = () => {
                     </Button>
                 }
             >
+                {/* Filter section */}
+                <div className="mt-6 mb-4">
+                    <div className="w-32">
+                        <Select
+                            name="statusFilter"
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                        >
+                            <option value="">Tất cả</option>
+                            <option value="active">Hoạt động</option>
+                            <option value="inactive">Tạm dừng</option>
+                        </Select>
+                    </div>
+                </div>
+
                 <LoadingState
                     isLoading={listLoading}
                     isEmpty={!listLoading && healthChecks.length === 0}
                     emptyState={
                         <div className="text-center text-gray-500 mt-8">
-                            Không có đợt khám sức khỏe nào.
+                            {statusFilter 
+                                ? `Không có đợt khám nào với trạng thái "${getStatusDisplay(statusFilter).text}".`
+                                : "Không có đợt khám sức khỏe nào."
+                            }
                         </div>
                     }
                 >
-                    <div className="mt-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
                         {healthChecks.map((hc) => (
                             <HealthCheckCard
                                 key={hc.id}
                                 healthCheck={hc}
+                                onViewDetail={handleViewDetail}
                                 onEdit={handleEdit}
                                 onDelete={handleDelete}
                             />
                         ))}
                     </div>
+
+                    {totalPages > 1 && (
+                        <div className="mt-6">
+                            <Pagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                onPageChange={handlePageChange}
+                                itemsPerPage={itemsPerPage}
+                                totalItems={totalItems}
+                                showInfo={true}
+                            />
+                        </div>
+                    )}
                 </LoadingState>
             </PageLayout>
+            </>
         );
     }
 
     // Render form view
     return (
-        <PageLayout
-            title={selectedHealthCheck ? "Chỉnh sửa đợt khám" : "Tạo đợt khám sức khỏe"}
-            subtitle={selectedHealthCheck ? "Cập nhật thông tin đợt khám sức khỏe" : "Tạo mới đợt khám sức khỏe cho sinh viên"}
-            showBack={true}
-            backText="Quay lại"
-            onBack={handleBackToList}
-        >
+        <>
+            {renderDetailModal()}
+            <PageLayout
+                title={selectedHealthCheck ? "Chỉnh sửa đợt khám" : "Tạo đợt khám sức khỏe"}
+                subtitle={selectedHealthCheck ? "Cập nhật thông tin đợt khám sức khỏe" : "Tạo mới đợt khám sức khỏe cho sinh viên"}
+                showBack={true}
+                backText="Quay lại"
+                onBack={handleBackToList}
+            >
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Tên đợt khám */}
@@ -379,7 +683,6 @@ const HealthCheckUpManagementPage = () => {
                         placeholder="Chọn tòa nhà"
                         required
                         error={validationErrors.buildingId}
-                        disabled={formLoading}
                     >
                         <option value="">Chọn tòa nhà</option>
                         {buildings.map((b) => (
@@ -483,6 +786,7 @@ const HealthCheckUpManagementPage = () => {
                             required
                             error={validationErrors.price}
                             min="0"
+                            step="10000"
                         />
                         {formData.price && (
                             <p className="mt-1 text-sm text-gray-500">
@@ -519,13 +823,14 @@ const HealthCheckUpManagementPage = () => {
                         disabled={formLoading}
                         loading={formLoading}
                         variant="primary"
-                        loadingText="Đang tạo đợt khám..."
+                        loadingText={selectedHealthCheck ? "Đang cập nhật đợt khám..." : "Đang tạo đợt khám..."}
                     >
                         {selectedHealthCheck ? "Cập nhật đợt khám" : "Tạo đợt khám"}
                     </Button>
                 </div>
             </form>
         </PageLayout>
+        </>
     );
 };
 

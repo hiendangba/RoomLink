@@ -10,6 +10,7 @@ import Pagination from '../../components/ui/Pagination';
 import LoadingState from '../../components/ui/LoadingState';
 import RejectionModal from '../../components/modal/RejectionModal';
 import BaseModal, { ModalBody } from '../../components/modal/BaseModal';
+import defaultNumberPlate from '../../assets/default_number_plate.jpg';
 
 const VehicleRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
   const { user } = useAuth();
@@ -330,9 +331,7 @@ const VehicleRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
       return new Date(dateString).toLocaleDateString('vi-VN', {
         year: 'numeric',
         month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        day: 'numeric'
       });
     } catch (e) {
       return dateString;
@@ -619,23 +618,24 @@ const VehicleRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
                   <label className="block text-sm font-medium text-gray-700">Ngày đăng ký</label>
                   <p className="text-gray-900">{formatDate(selectedRequestDetail?.registerDate)}</p>
                 </div>
-                {selectedRequestDetail?.image && (
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh biển số</label>
-                    <div className="border border-gray-300 rounded-lg p-2 bg-gray-50">
-                      <img
-                        src={selectedRequestDetail.image}
-                        alt="Ảnh biển số"
-                        className="w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => window.open(selectedRequestDetail.image, '_blank')}
-                        onError={(e) => {
-                          console.error('Error loading image:', selectedRequestDetail.image);
-                          e.target.style.display = 'none';
-                        }}
-                      />
-                    </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh biển số</label>
+                  <div className="border border-gray-300 rounded-lg p-2 bg-gray-50">
+                    <img
+                      src={selectedRequestDetail?.image || defaultNumberPlate}
+                      alt="Ảnh biển số"
+                      className="w-full h-64 object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => {
+                        const imageUrl = selectedRequestDetail?.image || defaultNumberPlate;
+                        window.open(imageUrl, '_blank');
+                      }}
+                      onError={(e) => {
+                        console.error('Error loading image:', selectedRequestDetail?.image);
+                        e.target.src = defaultNumberPlate;
+                      }}
+                    />
                   </div>
-                )}
+                </div>
               </div>
             </div>
             

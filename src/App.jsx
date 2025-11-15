@@ -463,7 +463,6 @@ const CreateAdminAccountPageWrapper = () => {
 
   const handleSuccess = (adminData) => {
     console.log('Admin account created successfully:', adminData);
-    showSuccess('Tạo tài khoản Admin thành công!');
     setTimeout(() => {
       window.location.href = '/admin';
     }, 1500);

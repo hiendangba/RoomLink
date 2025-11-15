@@ -10,6 +10,8 @@ import Pagination from '../../components/ui/Pagination';
 import LoadingState from '../../components/ui/LoadingState';
 import RejectionModal from '../../components/modal/RejectionModal';
 import BaseModal, { ModalBody } from '../../components/modal/BaseModal';
+import defaultAvatar from '../../assets/default_avatar_3x4.jpg';
+import defaultIdCard from '../../assets/default_id_card.jpg';
 
 const RoomRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
   const { user } = useAuth();
@@ -331,9 +333,7 @@ const RoomRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
       return new Date(dateString).toLocaleDateString('vi-VN', {
         year: 'numeric',
         month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        day: 'numeric'
       });
     } catch (e) {
       return dateString;
@@ -607,54 +607,42 @@ const RoomRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
               <div className="mt-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Ảnh đính kèm</h3>
                 <div className="grid grid-cols-2 gap-4">
-                  {selectedRequestDetail?.frontIdentificationImage ? (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh CCCD mặt trước</label>
-                      <div className="border border-gray-300 rounded-lg p-2 bg-gray-50">
-                        <img
-                          src={selectedRequestDetail.frontIdentificationImage}
-                          alt="CCCD mặt trước"
-                          className="w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => window.open(selectedRequestDetail.frontIdentificationImage, '_blank')}
-                          onError={(e) => {
-                            console.error('Error loading CCCD image:', selectedRequestDetail.frontIdentificationImage);
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                      </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh CCCD mặt trước</label>
+                    <div className="border border-gray-300 rounded-lg p-2 bg-gray-50">
+                      <img
+                        src={selectedRequestDetail?.frontIdentificationImage || defaultIdCard}
+                        alt="CCCD mặt trước"
+                        className="w-full h-64 object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => {
+                          const imageUrl = selectedRequestDetail?.frontIdentificationImage || defaultIdCard;
+                          window.open(imageUrl, '_blank');
+                        }}
+                        onError={(e) => {
+                          console.error('Error loading CCCD image:', selectedRequestDetail?.frontIdentificationImage);
+                          e.target.src = defaultIdCard;
+                        }}
+                      />
                     </div>
-                  ) : (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh CCCD mặt trước</label>
-                      <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 text-center text-gray-500">
-                        <p className="text-sm">Không có ảnh</p>
-                      </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh 3x4</label>
+                    <div className="border border-gray-300 rounded-lg p-2 bg-gray-50">
+                      <img
+                        src={selectedRequestDetail?.avatar || defaultAvatar}
+                        alt="Ảnh 3x4"
+                        className="w-full h-64 object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => {
+                          const imageUrl = selectedRequestDetail?.avatar || defaultAvatar;
+                          window.open(imageUrl, '_blank');
+                        }}
+                        onError={(e) => {
+                          console.error('Error loading avatar:', selectedRequestDetail?.avatar);
+                          e.target.src = defaultAvatar;
+                        }}
+                      />
                     </div>
-                  )}
-                  {selectedRequestDetail?.avatar ? (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh 3x4</label>
-                      <div className="border border-gray-300 rounded-lg p-2 bg-gray-50">
-                        <img
-                          src={selectedRequestDetail.avatar}
-                          alt="Ảnh 3x4"
-                          className="w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => window.open(selectedRequestDetail.avatar, '_blank')}
-                          onError={(e) => {
-                            console.error('Error loading avatar:', selectedRequestDetail.avatar);
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh 3x4</label>
-                      <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 text-center text-gray-500">
-                        <p className="text-sm">Không có ảnh</p>
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>

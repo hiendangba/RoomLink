@@ -6,6 +6,9 @@ import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
 import LoadingState from '../../components/ui/LoadingState';
+import Textarea from '../../components/ui/Textarea';
+import InfoBox from '../../components/ui/InfoBox';
+import BaseModal, { ModalBody } from '../../components/modal/BaseModal';
 
 const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
   const { user } = useAuth();
@@ -18,40 +21,85 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(4);
+  const [totalItems, setTotalItems] = useState(0);
   const [note, setNote] = useState('');
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedSessionDetail, setSelectedSessionDetail] = useState(null);
 
   useEffect(() => {
-    loadHealthChecks();
-  }, []);
+    loadHealthChecks(currentPage);
+  }, [currentPage]);
 
-  const loadHealthChecks = async () => {
+  // Parse backend date format (dd-mm-yyyy HH:mm:ss) to Date object
+  const parseBackendDateToDate = (dateString) => {
+    if (!dateString || dateString === "-" || typeof dateString !== 'string') {
+      return null;
+    }
+    const str = String(dateString).trim();
+    if (!str || str === "-") {
+      return null;
+    }
+    try {
+      // Backend format: "dd-mm-yyyy HH:mm:ss" (e.g., "01-11-2025 20:22:00")
+      const backendFormatMatch = str.match(/^(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/);
+      if (backendFormatMatch) {
+        const [, day, month, year, hours, minutes] = backendFormatMatch;
+        const dateStr = `${year}-${month}-${day}T${hours}:${minutes}:00`;
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+      // Fallback: Try parsing as ISO string or any other format
+      const date = new Date(str);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const loadHealthChecks = async (page = 1) => {
     try {
       setLoading(true);
-      const response = await healthCheckApi.getHealthChecks();
+      // Call API with availableForRegistration filter and pagination
+      const response = await healthCheckApi.getHealthChecks({ 
+        availableForRegistration: true,
+        page: page,
+        limit: itemsPerPage
+      });
       if (response.success && response.data) {
         const healthChecks = response.data;
         
+        // Get totalItems from response metadata
+        if (response.metadata && response.metadata.totalItems !== undefined) {
+          setTotalItems(response.metadata.totalItems);
+        }
+        
         // Transform API response to match component needs
-        const transformedSessions = healthChecks.map((hc) => ({
-          id: hc.id,
-          name: hc.title,
-          description: hc.description || '',
-          startDate: hc.startDate,
-          endDate: hc.endDate,
-          registrationDeadline: hc.registrationEndDate,
-          maxParticipants: hc.capacity,
-          currentParticipants: hc.registeredCount || 0,
-          status: hc.status === 'active' && 
-                  new Date(hc.registrationEndDate) >= new Date() &&
-                  (hc.registeredCount || 0) < hc.capacity ? 'open' : 'closed',
-          location: hc.buildingName || hc.location || 'Chưa xác định',
-          price: hc.price,
-          registrationStartDate: hc.registrationStartDate,
-          registrationEndDate: hc.registrationEndDate,
-          buildingName: hc.buildingName,
-          // Generate available dates and time slots from startDate to endDate
-          availableDates: generateAvailableDates(hc.startDate, hc.endDate)
-        }));
+        // Backend already filtered to only return available sessions
+        const transformedSessions = healthChecks.map((hc) => {
+          return {
+            id: hc.id,
+            name: hc.title,
+            description: hc.description || '',
+            startDate: hc.startDate,
+            endDate: hc.endDate,
+            registrationDeadline: hc.registrationEndDate,
+            maxParticipants: hc.capacity,
+            currentParticipants: hc.registeredCount || 0,
+            status: 'open', // All returned sessions are available for registration
+            location: hc.buildingName || hc.location || 'Chưa xác định',
+            price: hc.price,
+            registrationStartDate: hc.registrationStartDate,
+            registrationEndDate: hc.registrationEndDate,
+            buildingName: hc.buildingName,
+            // Generate available dates and time slots from startDate to endDate
+            availableDates: generateAvailableDates(hc.startDate, hc.endDate)
+          };
+        });
         
         setCheckupSessions(transformedSessions);
       }
@@ -66,10 +114,32 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
   // Generate available dates and time slots
   const generateAvailableDates = (startDate, endDate) => {
     const dates = [];
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const timeSlots = ['08:00-09:00', '09:00-10:00', '10:00-11:00', '14:00-15:00', '15:00-16:00'];
+    // Parse dates from backend format
+    const start = parseBackendDateToDate(startDate);
+    const end = parseBackendDateToDate(endDate);
     
+    if (!start || !end) {
+      return dates; // Return empty if dates are invalid
+    }
+    
+    // Fixed working hours: 08:00 to 17:00 (540 minutes to 1020 minutes)
+    const startTime = 8 * 60; // 08:00 in minutes from midnight
+    const endTime = 17 * 60; // 17:00 in minutes from midnight
+    const slotDuration = 10; // 10 minutes
+    
+    // Generate time slots with 10-minute intervals from 08:00 to 17:00
+    // Only store start time (e.g., "08:00", "08:10") instead of range (e.g., "08:00-08:10")
+    const timeSlots = [];
+    for (let minutes = startTime; minutes < endTime; minutes += slotDuration) {
+      const startHour = Math.floor(minutes / 60);
+      const startMin = minutes % 60;
+      
+      const startTimeStr = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}`;
+      
+      timeSlots.push(startTimeStr);
+    }
+    
+    // Generate dates from start to end
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       dates.push({
         date: d.toISOString().split('T')[0],
@@ -84,6 +154,10 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
     setSelectedSession(session);
     setSelectedDate('');
     setSelectedTimeSlot('');
+  };
+
+  const handleRegister = (session) => {
+    handleSessionSelect(session);
   };
 
   const handleBackToStep1 = () => {
@@ -120,22 +194,15 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
       return;
     }
 
-    // Get studentId from user object (stored during login)
-    const studentId = user?.roleId;
-    if (!studentId) {
-      showError('Không thể xác định thông tin sinh viên. Vui lòng đăng nhập lại.');
-      return;
-    }
-
     try {
       setIsSubmitting(true);
       
       // Combine date and time slot to create registerDate
-      const [startTime] = selectedTimeSlot.split('-');
-      const registerDate = new Date(`${selectedDate}T${startTime}:00`);
+      // selectedTimeSlot is now just the start time (e.g., "08:00") instead of range (e.g., "08:00-08:10")
+      const registerDate = new Date(`${selectedDate}T${selectedTimeSlot}:00`);
       
+      // Backend lấy userId từ req.userId (từ token), không cần gửi studentId
       const registrationData = {
-        studentId: studentId,
         healthCheckId: selectedSession.id,
         registerDate: registerDate.toISOString(),
         note: note || null
@@ -152,7 +219,7 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
       setNote('');
       
       // Reload health checks to update registered count
-      await loadHealthChecks();
+      await loadHealthChecks(currentPage);
       
       // Call onSuccess callback if provided
       if (onSuccess) {
@@ -168,11 +235,45 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
     }
   };
 
+  // Parse backend date format (dd-mm-yyyy HH:mm:ss) to Date object
+  const parseBackendDate = (dateString) => {
+    if (!dateString || dateString === "-" || typeof dateString !== 'string') {
+      return null;
+    }
+    const str = String(dateString).trim();
+    if (!str || str === "-") {
+      return null;
+    }
+    try {
+      // Backend format: "dd-mm-yyyy HH:mm:ss" (e.g., "01-11-2025 20:22:00")
+      const backendFormatMatch = str.match(/^(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/);
+      if (backendFormatMatch) {
+        const [, day, month, year, hours, minutes] = backendFormatMatch;
+        const dateStr = `${year}-${month}-${day}T${hours}:${minutes}:00`;
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+      // Fallback: Try parsing as ISO string or any other format
+      const date = new Date(str);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  };
+
   // Format date to Vietnamese format (dd/mm/yyyy HH:mm)
   const formatDate = (dateString) => {
-    if (!dateString) return '';
+    if (!dateString) return '-';
     try {
-      const date = new Date(dateString);
+      const date = parseBackendDate(dateString);
+      if (!date || isNaN(date.getTime())) {
+        return '-';
+      }
       const day = String(date.getDate()).padStart(2, '0');
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const year = date.getFullYear();
@@ -180,7 +281,7 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
       const minutes = String(date.getMinutes()).padStart(2, '0');
       return `${day}/${month}/${year} ${hours}:${minutes}`;
     } catch (e) {
-      return dateString;
+      return '-';
     }
   };
 
@@ -188,7 +289,10 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
   const formatDateOnly = (dateString) => {
     if (!dateString) return '';
     try {
-      const date = new Date(dateString);
+      const date = parseBackendDate(dateString);
+      if (!date || isNaN(date.getTime())) {
+        return '';
+      }
       const day = String(date.getDate()).padStart(2, '0');
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const year = date.getFullYear();
@@ -199,7 +303,7 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
       
       return `${dayOfWeek}, ${day}/${month}/${year}`;
     } catch (e) {
-      return dateString;
+      return '';
     }
   };
 
@@ -211,13 +315,167 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
     }).format(amount);
   };
 
-  const totalPages = Math.ceil(checkupSessions.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentSessions = checkupSessions.slice(startIndex, endIndex);
+  // Pagination calculations using backend totalItems
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
+  };
+
+  // Handle view detail
+  const handleViewDetail = async (session) => {
+    try {
+      setLoading(true);
+      const response = await healthCheckApi.getHealthCheckById(session.id);
+      if (response.success && response.data) {
+        setSelectedSessionDetail(response.data);
+        setShowDetailModal(true);
+      }
+    } catch (err) {
+      showError(err?.response?.data?.message || "Lỗi khi tải chi tiết đợt khám");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // HealthCheckCard component for student view
+  const HealthCheckCard = ({ session, onViewDetail, onRegister }) => {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+        {/* Header: tiêu đề */}
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">{session.name}</h3>
+          <p className="text-sm text-gray-500">{session.buildingName || session.location || 'Chưa xác định'}</p>
+        </div>
+
+        {/* Nội dung */}
+        <div className="space-y-2 mb-4">
+          <div className="flex justify-between">
+            <span className="text-sm text-gray-600">Thời gian:</span>
+            <span className="text-sm font-medium">{formatDate(session.startDate)} → {formatDate(session.endDate)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-sm text-gray-600">Sức chứa:</span>
+            <span className="text-sm font-medium">{session.currentParticipants}/{session.maxParticipants}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-sm text-gray-600">Phí:</span>
+            <span className="text-sm font-medium text-green-600">
+              {formatCurrency(session.price)}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-sm text-gray-600">Đăng ký:</span>
+            <span className="text-sm font-medium">{formatDate(session.registrationStartDate)} → {formatDate(session.registrationEndDate)}</span>
+          </div>
+        </div>
+
+        {/* Hàng nút hành động */}
+        <div className="flex items-center justify-between pt-2 border-t">
+          <div className="flex space-x-2">
+            <Button
+              onClick={() => onViewDetail(session)}
+              variant="outline"
+              size="small"
+              className="px-3 py-1 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200"
+            >
+              Chi tiết
+            </Button>
+            <Button
+              onClick={() => onRegister(session)}
+              variant="primary"
+              size="small"
+              className="px-3 py-1 text-xs"
+            >
+              Đăng ký
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Detail Modal
+  const renderDetailModal = () => {
+    if (!selectedSessionDetail) return null;
+
+    const hc = selectedSessionDetail;
+
+    return (
+      <BaseModal
+        isOpen={showDetailModal}
+        onClose={() => setShowDetailModal(false)}
+        title="Chi tiết đợt khám sức khỏe"
+        size="xlarge"
+        closeOnOverlayClick={true}
+        className="max-h-[105vh] overflow-y-auto"
+        zIndex={60}
+      >
+        <ModalBody className="max-h-[calc(105vh-200px)] overflow-y-auto">
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Thông tin cơ bản</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Tên đợt khám</label>
+                  <p className="text-gray-900">{hc.title}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Tòa nhà</label>
+                  <p className="text-gray-900">{hc.buildingName || 'Chưa xác định'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Sức chứa</label>
+                  <p className="text-gray-900">{hc.registeredCount}/{hc.capacity}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Phí</label>
+                  <p className="text-gray-900 text-green-600">
+                    {new Intl.NumberFormat("vi-VN", {
+                      style: "currency",
+                      currency: "VND",
+                      minimumFractionDigits: 0,
+                    }).format(hc.price)}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Thời gian</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Thời gian khám</label>
+                  <p className="text-gray-900">
+                    {formatDate(hc.startDate)} → {formatDate(hc.endDate)}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Thời gian đăng ký</label>
+                  <p className="text-gray-900">
+                    {formatDate(hc.registrationStartDate)} → {formatDate(hc.registrationEndDate)}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Mô tả</h3>
+              <p className="text-gray-900 whitespace-pre-wrap">
+                {hc.description || 'Không có mô tả'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex justify-end pt-4 border-t border-gray-200">
+            <Button onClick={() => setShowDetailModal(false)} variant="outline">
+              Đóng
+            </Button>
+          </div>
+        </ModalBody>
+      </BaseModal>
+    );
   };
 
 
@@ -233,11 +491,8 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
     >
       {!selectedSession ? (
         /* Step 1: Select Health Check Session */
-        <div>
-          <h2 className="text-xl font-semibold text-gray-700 mb-4">
-            Bước 1: Chọn đợt khám sức khỏe
-          </h2>
-          
+        <>
+          {renderDetailModal()}
           <LoadingState
             isLoading={loading}
             isEmpty={!loading && checkupSessions.length === 0}
@@ -248,60 +503,32 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
             }
           >
             <>
-              <div className="mt-8">
-                {currentSessions.map((session) => (
-                  <div
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+                {checkupSessions.map((session) => (
+                  <HealthCheckCard
                     key={session.id}
-                    className={`border border-gray-200 rounded-xl shadow p-4 mb-4 hover:shadow-lg transition cursor-pointer bg-white ${
-                      selectedSession?.id === session.id
-                        ? 'border-blue-500'
-                        : ''
-                    }`}
-                    onClick={() => handleSessionSelect(session)}
-                  >
-                    {/* Header: tiêu đề */}
-                    <div className="mb-2">
-                      <h2 className="text-xl font-semibold">{session.name}</h2>
-                    </div>
-
-                    {/* Nội dung */}
-                    <p className="text-gray-700 mb-1">{session.description}</p>
-                    <p className="text-gray-600 mb-1">
-                      <strong>Tòa nhà:</strong> {session.buildingName || session.location || 'Chưa xác định'}
-                    </p>
-                    <p className="text-gray-600 mb-1">
-                      <strong>Thời gian:</strong> {formatDate(session.startDate)} → {formatDate(session.endDate)}
-                    </p>
-                    <p className="text-gray-600 mb-1">
-                      <strong>Sức chứa:</strong> {session.maxParticipants} |{' '}
-                      <strong>Đã đăng ký:</strong> {session.currentParticipants}
-                    </p>
-                    <p className="text-gray-600 mb-1">
-                      <strong>Phí:</strong> {formatCurrency(session.price)}
-                    </p>
-                    <p className="text-gray-600 mb-3">
-                      <strong>Thời gian đăng ký:</strong> {formatDate(session.registrationStartDate)} →{' '}
-                      {formatDate(session.registrationEndDate)}
-                    </p>
-                  </div>
+                    session={session}
+                    onViewDetail={handleViewDetail}
+                    onRegister={handleRegister}
+                  />
                 ))}
               </div>
               
-              {checkupSessions.length > itemsPerPage && (
+              {totalPages > 1 && (
                 <div className="mt-6">
                   <Pagination
                     currentPage={currentPage}
                     totalPages={totalPages}
                     onPageChange={handlePageChange}
                     itemsPerPage={itemsPerPage}
-                    totalItems={checkupSessions.length}
+                    totalItems={totalItems}
                     showInfo={true}
                   />
                 </div>
               )}
             </>
           </LoadingState>
-        </div>
+        </>
       ) : selectedSession.status === 'open' ? (
         /* Step 2: Select Date and Time */
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -337,13 +564,14 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Chọn ngày khám <span className="text-red-500">*</span>
               </label>
-              <div className="flex gap-3 flex-wrap justify-center">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {selectedSession.availableDates.map((dateInfo) => (
                   <Button
                     key={dateInfo.date}
                     type="button"
                     onClick={() => handleDateSelect(dateInfo.date)}
                     variant={selectedDate === dateInfo.date ? "primary" : "outline"}
+                    fullWidth
                   >
                     {formatDateOnly(dateInfo.date)}
                   </Button>
@@ -356,7 +584,7 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Chọn khung giờ khám <span className="text-red-500">*</span>
                 </label>
-                <div className="flex gap-3 flex-wrap justify-center">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
                   {selectedSession.availableDates
                     .find((d) => d.date === selectedDate)
                     ?.timeSlots.map((timeSlot) => (
@@ -365,6 +593,7 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
                         type="button"
                         onClick={() => handleTimeSlotSelect(timeSlot)}
                         variant={selectedTimeSlot === timeSlot ? "primary" : "outline"}
+                        fullWidth
                       >
                         {timeSlot}
                       </Button>
@@ -375,33 +604,26 @@ const HealthCheckupRegistrationPage = ({ onSuccess, onCancel }) => {
 
             {/* Note field */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ghi chú (tùy chọn)
-              </label>
-              <textarea
+              <Textarea
+                label="Ghi chú (tùy chọn)"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Nhập ghi chú nếu có..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 rows={3}
                 maxLength={2000}
               />
-              <p className="mt-1 text-sm text-gray-500">
-                {note.length}/2000 ký tự
-              </p>
             </div>
 
             {/* Requirements notice */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <h3 className="text-lg font-medium text-yellow-800 mb-2">
-                Lưu ý trước khi khám:
-              </h3>
-              <ul className="list-disc list-inside text-yellow-700 space-y-1">
-                <li>Mang theo CMND/CCCD</li>
-                <li>Đến đúng giờ đã đăng ký</li>
-                <li>Nhịn ăn sáng nếu có yêu cầu</li>
-              </ul>
-            </div>
+            <InfoBox
+              type="warning"
+              title="Lưu ý trước khi khám:"
+              messages={[
+                'Mang theo CMND/CCCD',
+                'Đến đúng giờ đã đăng ký',
+                'Nhịn ăn sáng nếu có yêu cầu'
+              ]}
+            />
 
           {/* Submit buttons */}
           {selectedDate && selectedTimeSlot && (

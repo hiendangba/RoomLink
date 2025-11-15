@@ -107,7 +107,7 @@ const BaseModal = ({
 // Modal Footer Component
 export const ModalFooter = ({ children, className = '' }) => {
   return (
-    <div className={`bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3 ${className}`}>
+    <div className={`bg-white px-6 py-4 border-t border-gray-200 flex justify-end space-x-3 ${className}`}>
       {children}
     </div>
   );

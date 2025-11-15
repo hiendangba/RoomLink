@@ -5,6 +5,10 @@ const authApi = {
     return axiosClient.post("/auth/register", data);
   },
 
+  registerAdmin(data) {
+    return axiosClient.post("/auth/register-admin", data);
+  },
+
   checkCCCD(data) {
     return axiosClient.post("/auth/checkCCCD", data, {
       headers: {

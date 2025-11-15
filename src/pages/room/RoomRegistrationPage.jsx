@@ -89,6 +89,13 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
   const originalFilesRef = useRef({ cccdFront: null, avatar: null });
   const previewUrlsRef = useRef({ cccdFront: null, avatar: null });
 
+  // Store temporary file and preview URL when user selects a new file (before confirming)
+  const tempFileRef = useRef({ cccdFront: null, avatar: null });
+  const tempPreviewUrlRef = useRef({ cccdFront: null, avatar: null });
+  
+  // Store temporary preview URL when re-editing existing image (from original file)
+  const tempEditPreviewUrlRef = useRef({ cccdFront: null, avatar: null });
+
   // Store edit state (zoom, rotate, position, qrScanArea) to restore when re-editing
   const editStateRef = useRef({
     cccdFront: { zoom: 100, rotate: 0, position: { x: 0, y: 0 }, qrScanArea: null },
@@ -124,12 +131,14 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
       return;
     }
 
-    // Revoke previous preview URL if exists
-    if (previewUrlsRef.current[fieldName]) {
-      URL.revokeObjectURL(previewUrlsRef.current[fieldName]);
+    // Clean up previous temporary file and preview URL if exists
+    if (tempPreviewUrlRef.current[fieldName]) {
+      URL.revokeObjectURL(tempPreviewUrlRef.current[fieldName]);
+      tempPreviewUrlRef.current[fieldName] = null;
     }
+    tempFileRef.current[fieldName] = null;
 
-    // If changing image, reset edit state for new image
+    // Reset edit state for new image
     editStateRef.current[fieldName] = { zoom: 100, rotate: 0, position: { x: 0, y: 0 }, qrScanArea: null };
 
     // If changing CCCD image, clear QR cropped preview only
@@ -142,34 +151,21 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
       // Form data will be cleared when scanning QR in handleImageEditConfirm
     }
 
-    // Create preview URL for the new file
-    const previewUrl = URL.createObjectURL(file);
-    console.log('Created preview URL for', fieldName, ':', previewUrl);
+    // Store file temporarily (not in state yet)
+    tempFileRef.current[fieldName] = file;
 
-    // Update ref
-    previewUrlsRef.current[fieldName] = previewUrl;
+    // Create temporary preview URL for modal display only
+    const tempPreviewUrl = URL.createObjectURL(file);
+    console.log('Created temporary preview URL for', fieldName, ':', tempPreviewUrl);
+    tempPreviewUrlRef.current[fieldName] = tempPreviewUrl;
 
-    // Store original file separately to preserve quality when re-editing
-    originalFilesRef.current[fieldName] = file;
-
-    // Set file
-    setFiles(prev => ({
-      ...prev,
-      [fieldName]: file
-    }));
-
-    // Set preview immediately so it shows even before editing
-    setPreviews(prev => ({
-      ...prev,
-      [fieldName]: previewUrl
-    }));
-
-    // Open image editor modal immediately
-    console.log('Setting editingImage for', fieldName, 'with src:', previewUrl);
+    // Open image editor modal with temporary preview URL
+    console.log('Setting editingImage for', fieldName, 'with src:', tempPreviewUrl);
     setEditingImage({
       type: fieldName,
-      src: previewUrl,
-      originalFile: file // Keep reference to original file for QR cropping
+      src: tempPreviewUrl,
+      originalFile: file, // Keep reference to original file for QR cropping
+      isNewFile: true // Flag to indicate this is a new file selection
     });
 
     // Clear error when user uploads file
@@ -190,6 +186,20 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
       }
       if (previewUrlsRef.current.avatar) {
         URL.revokeObjectURL(previewUrlsRef.current.avatar);
+      }
+      // Cleanup temporary preview URLs
+      if (tempPreviewUrlRef.current.cccdFront) {
+        URL.revokeObjectURL(tempPreviewUrlRef.current.cccdFront);
+      }
+      if (tempPreviewUrlRef.current.avatar) {
+        URL.revokeObjectURL(tempPreviewUrlRef.current.avatar);
+      }
+      // Cleanup temporary edit preview URLs
+      if (tempEditPreviewUrlRef.current.cccdFront) {
+        URL.revokeObjectURL(tempEditPreviewUrlRef.current.cccdFront);
+      }
+      if (tempEditPreviewUrlRef.current.avatar) {
+        URL.revokeObjectURL(tempEditPreviewUrlRef.current.avatar);
       }
     };
   }, []);
@@ -822,14 +832,28 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
     if (editingImage && editedBlob) {
       const editedUrl = URL.createObjectURL(editedBlob);
 
-      // Revoke old preview URL
-      if (previewUrlsRef.current[editingImage.type]) {
+      // Clean up temporary preview URL if this was a new file selection
+      if (editingImage.isNewFile && tempPreviewUrlRef.current[editingImage.type]) {
+        URL.revokeObjectURL(tempPreviewUrlRef.current[editingImage.type]);
+        tempPreviewUrlRef.current[editingImage.type] = null;
+      }
+
+      // Clean up temporary edit preview URL if re-editing existing image
+      if (!editingImage.isNewFile && tempEditPreviewUrlRef.current[editingImage.type]) {
+        URL.revokeObjectURL(tempEditPreviewUrlRef.current[editingImage.type]);
+        tempEditPreviewUrlRef.current[editingImage.type] = null;
+      }
+
+      // Revoke old preview URL (if editing existing image)
+      if (!editingImage.isNewFile && previewUrlsRef.current[editingImage.type]) {
         URL.revokeObjectURL(previewUrlsRef.current[editingImage.type]);
       }
 
       // Get original file name or generate new one
-      // Always use the original file name, not the edited one
-      const originalFile = originalFilesRef.current[editingImage.type] || files[editingImage.type];
+      // For new file selection, use tempFileRef; for editing existing, use originalFilesRef or files
+      const originalFile = editingImage.isNewFile 
+        ? tempFileRef.current[editingImage.type] 
+        : (originalFilesRef.current[editingImage.type] || files[editingImage.type]);
       const fileName = originalFile ? originalFile.name.replace(/\.[^/.]+$/, '.png') : `edited_${editingImage.type}.png`;
 
       // Create new file from blob (for display/preview)
@@ -843,6 +867,12 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
 
       // Update ref
       previewUrlsRef.current[fieldType] = editedUrl;
+
+      // For new file selection, store original file in originalFilesRef
+      if (editingImage.isNewFile && tempFileRef.current[fieldType]) {
+        originalFilesRef.current[fieldType] = tempFileRef.current[fieldType];
+        tempFileRef.current[fieldType] = null; // Clear temp file
+      }
 
       // Save edit state for next edit session
       if (editState) {
@@ -972,8 +1002,29 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
   };
 
   const handleImageEditCancel = () => {
-    // Just close the modal, keep the image (don't remove file or preview)
-    // User can edit again later if needed
+    if (!editingImage) return;
+    
+    const fieldName = editingImage.type;
+    
+    // If this was a new file selection (not editing existing), clean up temp file and preview
+    if (editingImage.isNewFile) {
+      // Revoke temporary preview URL
+      if (tempPreviewUrlRef.current[fieldName]) {
+        URL.revokeObjectURL(tempPreviewUrlRef.current[fieldName]);
+        tempPreviewUrlRef.current[fieldName] = null;
+      }
+      
+      // Clear temporary file
+      tempFileRef.current[fieldName] = null;
+    } else {
+      // If re-editing existing image, clean up temp edit preview URL
+      if (tempEditPreviewUrlRef.current[fieldName]) {
+        URL.revokeObjectURL(tempEditPreviewUrlRef.current[fieldName]);
+        tempEditPreviewUrlRef.current[fieldName] = null;
+      }
+    }
+    
+    // Close modal
     setEditingImage(null);
   };
 
@@ -1067,15 +1118,26 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
                       variant="outline"
                       size="small"
                       onClick={() => {
+                        // Clean up previous temp edit preview URL if exists
+                        if (tempEditPreviewUrlRef.current.cccdFront) {
+                          URL.revokeObjectURL(tempEditPreviewUrlRef.current.cccdFront);
+                        }
+                        
                         // Always use original file when re-editing to preserve quality
                         const originalFile = originalFilesRef.current.cccdFront || files.cccdFront;
-                        const originalUrl = originalFile ? URL.createObjectURL(originalFile) : previews.cccdFront;
+                        if (!originalFile) return;
+                        
+                        // Create temporary preview URL from original file for editing
+                        const tempEditPreviewUrl = URL.createObjectURL(originalFile);
+                        tempEditPreviewUrlRef.current.cccdFront = tempEditPreviewUrl;
+                        
                         const editState = editStateRef.current.cccdFront;
                         setEditingImage({
                           type: 'cccdFront',
-                          src: originalUrl,
+                          src: tempEditPreviewUrl, // Use original file preview URL
                           originalFile: originalFile,
-                          editState: editState // Pass edit state to restore zoom, rotate, position
+                          editState: editState, // Pass edit state to restore zoom, rotate, position
+                          isNewFile: false // Flag to indicate this is editing existing image
                         });
                       }}
                     >
@@ -1133,15 +1195,26 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
                       variant="outline"
                       size="small"
                       onClick={() => {
+                        // Clean up previous temp edit preview URL if exists
+                        if (tempEditPreviewUrlRef.current.avatar) {
+                          URL.revokeObjectURL(tempEditPreviewUrlRef.current.avatar);
+                        }
+                        
                         // Always use original file when re-editing to preserve quality
                         const originalFile = originalFilesRef.current.avatar || files.avatar;
-                        const originalUrl = originalFile ? URL.createObjectURL(originalFile) : previews.avatar;
+                        if (!originalFile) return;
+                        
+                        // Create temporary preview URL from original file for editing
+                        const tempEditPreviewUrl = URL.createObjectURL(originalFile);
+                        tempEditPreviewUrlRef.current.avatar = tempEditPreviewUrl;
+                        
                         const editState = editStateRef.current.avatar;
                         setEditingImage({
                           type: 'avatar',
-                          src: originalUrl,
+                          src: tempEditPreviewUrl, // Use original file preview URL
                           originalFile: originalFile,
-                          editState: editState // Pass edit state to restore zoom, rotate, position
+                          editState: editState, // Pass edit state to restore zoom, rotate, position
+                          isNewFile: false // Flag to indicate this is editing existing image
                         });
                       }}
                     >
@@ -1280,7 +1353,7 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-between pt-6 border-t">
+          <div className="flex justify-end space-x-4 pt-6 border-t">
             <Button
               variant="outline"
               onClick={onCancel}

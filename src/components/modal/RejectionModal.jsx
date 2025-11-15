@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import BaseModal, { ModalBody, ModalFooter } from './BaseModal';
 import Button from '../ui/Button';
+import Textarea from '../ui/Textarea';
+import Radio from '../ui/Radio';
 
 const RejectionModal = ({ isOpen, onClose, onConfirm, title = "Nhập lý do từ chối", selectedItems = [], onViewDetail, onRemoveItem }) => {
   const [reason, setReason] = useState(''); // Lý do chung
@@ -73,44 +75,31 @@ const RejectionModal = ({ isOpen, onClose, onConfirm, title = "Nhập lý do t�
     >
       <ModalBody>
         <div className="mb-4">
-          <div className="mb-4">
-            <label className="flex items-center space-x-2 mb-3">
-              <input
-                type="radio"
-                checked={useCommonReason}
-                onChange={() => setUseCommonReason(true)}
-                className="text-red-600 focus:ring-red-500"
-              />
-              <span className="text-sm font-medium text-gray-700">Dùng lý do chung cho tất cả đơn</span>
-            </label>
-            <label className="flex items-center space-x-2">
-              <input
-                type="radio"
-                checked={!useCommonReason}
-                onChange={() => setUseCommonReason(false)}
-                className="text-red-600 focus:ring-red-500"
-              />
-              <span className="text-sm font-medium text-gray-700">Nhập lý do riêng cho từng đơn</span>
-            </label>
+          <div className="mb-4 space-y-2">
+            <Radio
+              label="Dùng lý do chung cho tất cả đơn"
+              checked={useCommonReason}
+              onChange={() => setUseCommonReason(true)}
+              className="text-red-600 focus:ring-red-500"
+            />
+            <Radio
+              label="Nhập lý do riêng cho từng đơn"
+              checked={!useCommonReason}
+              onChange={() => setUseCommonReason(false)}
+              className="text-red-600 focus:ring-red-500"
+            />
           </div>
 
           {useCommonReason ? (
-            <>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Lý do từ chối (tùy chọn)
-              </label>
-              <textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Nhập lý do từ chối chi tiết cho tất cả đơn..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
-                rows={4}
-                maxLength={500}
-              />
-              <div className="text-right text-sm text-gray-500 mt-1">
-                {reason.length}/500 ký tự
-              </div>
-            </>
+            <Textarea
+              label="Lý do từ chối (tùy chọn)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Nhập lý do từ chối chi tiết cho tất cả đơn..."
+              rows={4}
+              maxLength={500}
+              className="focus:ring-red-500 focus:border-red-500"
+            />
           ) : (
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {selectedItems.map((item) => (
@@ -147,20 +136,18 @@ const RejectionModal = ({ isOpen, onClose, onConfirm, title = "Nhập lý do t�
                       )}
                     </div>
                   </div>
-                  <textarea
+                  <Textarea
                     value={individualReasons[item.id] || ''}
                     onChange={(e) => setIndividualReasons(prev => ({
                       ...prev,
                       [item.id]: e.target.value
                     }))}
                     placeholder="Nhập lý do từ chối cho đơn này..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
                     rows={2}
                     maxLength={500}
+                    size="small"
+                    className="focus:ring-red-500 focus:border-red-500"
                   />
-                  <div className="text-right text-xs text-gray-500 mt-1">
-                    {(individualReasons[item.id] || '').length}/500 ký tự
-                  </div>
                 </div>
               ))}
             </div>

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import BaseModal, { ModalBody, ModalFooter } from './BaseModal';
 import Button from '../ui/Button';
+import InfoBox from '../ui/InfoBox';
 
 const ImageEditorModal = ({
   isOpen,
@@ -414,12 +415,16 @@ const ImageEditorModal = ({
       <ModalBody>
         <div className="space-y-4">
           {/* Instructions */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-xs text-blue-800">
-              <strong>Hướng dẫn:</strong> Sử dụng slider để zoom.
-              Kéo ảnh để di chuyển. Sử dụng slider hoặc nút để xoay ảnh.
-            </p>
-          </div>
+          <InfoBox
+            type="info"
+            messages={[
+              <span key="instruction">
+                <strong>Hướng dẫn:</strong> Sử dụng slider để zoom.
+                Kéo ảnh để di chuyển. Sử dụng slider hoặc nút để xoay ảnh.
+              </span>
+            ]}
+            className="text-xs"
+          />
 
           {!imageSrc ? (
             <div className="text-center py-12 text-red-600">
