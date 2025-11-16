@@ -35,7 +35,8 @@ const ImageEditorModal = ({
   // Frame dimensions based on type
   const frameDimensions = {
     '3x4': { width: 150, height: 200 }, // 3x4 cm ratio (approx 3:4)
-    'cccd': { width: 400, height: 250 } // CCCD ratio (approx 8:5)
+    'cccd': { width: 400, height: 250 }, // CCCD ratio (approx 8:5)
+    'numberPlate': { width: 300, height: 120 } // Biển số xe ratio (approx 5:2)
   };
 
   const frame = frameDimensions[imageType] || frameDimensions['3x4'];
@@ -455,7 +456,7 @@ const ImageEditorModal = ({
                 >
                   {/* Frame Label */}
                   <div className="absolute -top-8 left-0 text-sm font-medium text-blue-600">
-                    Khung {imageType === '3x4' ? '3x4' : 'CCCD'}
+                    Khung {imageType === '3x4' ? '3x4' : imageType === 'cccd' ? 'CCCD' : 'Biển số xe'}
                   </div>
                 </div>
 

@@ -172,7 +172,7 @@ const HealthCheckCard = ({ healthCheck, onViewDetail, onEdit, onDelete }) => {
 };
 
 // Main component
-const HealthCheckUpManagementPage = () => {
+const HealthCheckUpManagementPage = ({ onSuccess, onCancel }) => {
     const navigate = useNavigate();
     const { showError, showSuccess } = useNotification();
 
@@ -333,7 +333,7 @@ const HealthCheckUpManagementPage = () => {
             registrationStartDate: regStartDateValue || undefined,
             registrationEndDate: regEndDateValue || undefined,
             capacity: healthCheck?.capacity || "",
-            price: healthCheck?.price || "",
+            price: healthCheck?.price ? String(Math.floor(healthCheck.price)) : "",
             status: healthCheck?.status || "active",
         });
         setCurrentView('form');
@@ -406,7 +406,11 @@ const HealthCheckUpManagementPage = () => {
 
     // Handle cancel - go back to admin page
     const handleCancel = () => {
-        navigate("/admin");
+        if (onCancel) {
+            onCancel();
+        } else {
+            navigate("/admin");
+        }
     };
 
     // Convert datetime-local -> ISO UTC
@@ -419,7 +423,14 @@ const HealthCheckUpManagementPage = () => {
     // Handle input change
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
+        // For price field, ensure only integer values (remove decimals and commas)
+        if (name === 'price') {
+            // Remove commas, dots (except for decimal separator), and ensure integer
+            const cleanedValue = value.replace(/[^\d]/g, '');
+            setFormData((prev) => ({ ...prev, [name]: cleanedValue }));
+        } else {
+            setFormData((prev) => ({ ...prev, [name]: value }));
+        }
     };
 
     // Submit form
@@ -435,7 +446,7 @@ const HealthCheckUpManagementPage = () => {
             registrationStartDate: toISOStringWithOffset(formData.registrationStartDate),
             registrationEndDate: toISOStringWithOffset(formData.registrationEndDate),
             capacity: Number(formData.capacity),
-            price: Number(formData.price),
+            price: parseInt(formData.price, 10) || 0, // Ensure integer
             status: formData.status,
         };
 

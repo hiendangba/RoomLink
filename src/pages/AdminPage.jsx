@@ -38,6 +38,10 @@ const AdminPage = () => {
     window.location.href = '/room-management';
   };
 
+  const handleBuildingManagement = () => {
+    window.location.href = '/building-management';
+  };
+
   const handleGoToHealthCheckup = () => {
     window.location.href = '/health-checkup-management';
   };
@@ -93,6 +97,10 @@ const AdminPage = () => {
               Quản lý phòng
             </h2>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
+              <div className="bg-green-50 p-6 rounded-lg cursor-pointer hover:bg-green-100 transition-colors" onClick={handleBuildingManagement}>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Quản lý tòa nhà</h3>
+                <p className="text-green-600 text-sm">Thêm, xóa và quản lý các tòa nhà trong ký túc xá</p>
+              </div>
               <div className="bg-green-50 p-6 rounded-lg cursor-pointer hover:bg-green-100 transition-colors" onClick={handleRoomTypeManagement}>
                 <h3 className="text-lg font-semibold text-green-800 mb-2">Quản lý loại phòng</h3>
                 <p className="text-green-600 text-sm">Thêm, sửa, xóa và quản lý các loại phòng ở KTX</p>

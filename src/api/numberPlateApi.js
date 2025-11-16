@@ -1,6 +1,15 @@
 import axiosClient from './axiosClient';
 
 const numberPlateApi = {
+  // POST - Tạo đơn đăng ký biển số xe
+  createNumberPlate: (formData) => {
+    return axiosClient.post('/number-plate', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
   // GET - Lấy danh sách đơn đăng ký biển số (có thể filter theo status, page, limit, keyword)
   getNumberPlates: (params = {}) => {
     return axiosClient.get('/number-plate', { params });

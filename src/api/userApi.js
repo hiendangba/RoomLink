@@ -8,6 +8,10 @@ const userApi = {
   changePassword(data) {
     return axiosClient.patch("/user/change-password", data);
   },
+
+  updateProfile(data) {
+    return axiosClient.patch("/user/profile", data);
+  },
 };
 
 export default userApi;

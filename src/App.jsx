@@ -26,6 +26,7 @@ import VehicleRegistrationApprovalPage from './pages/admin/VehicleRegistrationAp
 import RoomTypeManagementPage from './pages/admin/RoomTypeManagementPage';
 import CreateAdminAccountPage from './pages/admin/CreateAdminAccountPage';
 import RoomManagementPage from './pages/admin/RoomManagementPage';
+import BuildingManagementPage from './pages/admin/BuildingManagementPage';
 import RoomTransferApprovalPage from './pages/admin/RoomTransferApprovalPage';
 import ElectricityWaterBillCreationPage from './pages/admin/ElectricityWaterBillCreationPage';
 import HealthCheckUpManagementPage from './pages/admin/HealthCheckUpManagementPage';
@@ -64,6 +65,7 @@ function App() {
             <Route path="/room-type-management" element={<RoomTypeManagementPageWrapper />} />
             <Route path="/create-admin-account" element={<CreateAdminAccountPageWrapper />} />
             <Route path="/room-management" element={<RoomManagementPageWrapper />} />
+            <Route path="/building-management" element={<BuildingManagementPageWrapper />} />
             <Route path="/room-transfer-approval" element={<RoomTransferApprovalPageWrapper />} />
             <Route path="/electricity-water-bill-creation" element={<ElectricityWaterBillCreationPageWrapper />} />
             <Route path="/health-checkup-management" element={<HealthCheckUpManagementPageWrapper />} />
@@ -83,18 +85,11 @@ const RoomRegistrationPageWrapper = () => {
 
 // Edit Profile Page Wrapper
 const EditProfilePageWrapper = () => {
-  const handleSuccess = (updatedProfile) => {
-    console.log('Profile updated successfully:', updatedProfile);
-    window.location.href = '/student';
-  };
-
   const handleCancel = () => {
     window.location.href = '/student';
   };
-
   return (
     <EditProfilePage
-      onSuccess={handleSuccess}
       onCancel={handleCancel}
     />
   );
@@ -104,7 +99,9 @@ const EditProfilePageWrapper = () => {
 const FaceRegistrationPageWrapper = () => {
   const handleSuccess = () => {
     console.log('Face registration successful');
-    window.location.href = '/student';
+    setTimeout(() => {
+      window.location.href = '/student';
+    }, 1500);
   };
 
   const handleCancel = () => {
@@ -195,7 +192,9 @@ const ChangePasswordPageWrapper = () => {
 const ForgotPasswordPageWrapper = () => {
   const handleSuccess = (user) => {
     console.log('Forgot password process completed:', user);
-    window.location.href = '/login';
+    setTimeout(() => {
+      window.location.href = '/login';
+    }, 1500);
   };
 
   const handleCancel = () => {
@@ -214,7 +213,9 @@ const ForgotPasswordPageWrapper = () => {
 const RoomExtensionPageWrapper = () => {
   const handleSuccess = (updatedContract) => {
     console.log('Room extension successful:', updatedContract);
-    window.location.href = '/student';
+    setTimeout(() => {
+      window.location.href = '/student';
+    }, 1500);
   };
 
   const handleCancel = () => {
@@ -233,7 +234,9 @@ const RoomExtensionPageWrapper = () => {
 const RoomTransferPageWrapper = () => {
   const handleSuccess = (transferData) => {
     console.log('Room transfer successful:', transferData);
-    window.location.href = '/student';
+    setTimeout(() => {
+      window.location.href = '/student';
+    }, 1500);
   };
 
   const handleCancel = () => {
@@ -252,7 +255,9 @@ const RoomTransferPageWrapper = () => {
 const RoomCancellationPageWrapper = () => {
   const handleSuccess = (cancellationData) => {
     console.log('Room cancellation successful:', cancellationData);
-    window.location.href = '/student';
+    setTimeout(() => {
+      window.location.href = '/student';
+    }, 1500);
   };
 
   const handleCancel = () => {
@@ -295,11 +300,8 @@ const FeesViewPageWrapper = () => {
 
 // Payment Page Wrapper
 const PaymentPageWrapper = () => {
-  const { showSuccess } = useNotification();
-
   const handleSuccess = (paymentData) => {
     console.log('Payment successful:', paymentData);
-    showSuccess('Thanh toán thành công!');
     setTimeout(() => {
       window.location.href = '/student';
     }, 1500);
@@ -319,11 +321,8 @@ const PaymentPageWrapper = () => {
 
 // Health Checkup Registration Page Wrapper
 const HealthCheckupRegistrationPageWrapper = () => {
-  const { showSuccess } = useNotification();
-
   const handleSuccess = (registrationData) => {
     console.log('Health checkup registration successful:', registrationData);
-    showSuccess('Đăng ký khám sức khỏe thành công!');
     setTimeout(() => {
       window.location.href = '/student';
     }, 1500);
@@ -343,11 +342,8 @@ const HealthCheckupRegistrationPageWrapper = () => {
 
 // Vehicle Registration Page Wrapper
 const VehicleRegistrationPageWrapper = () => {
-  const { showSuccess } = useNotification();
-
-  const handleSuccess = (vehicleData) => {
-    console.log('Vehicle registration successful:', vehicleData);
-    showSuccess('Đăng ký biển số xe thành công!');
+  const handleSuccess = (registrationData) => {
+    console.log('Vehicle registration successful:', registrationData);
     setTimeout(() => {
       window.location.href = '/student';
     }, 1500);
@@ -367,20 +363,12 @@ const VehicleRegistrationPageWrapper = () => {
 
 // Extension Approval Page Wrapper
 const ExtensionApprovalPageWrapper = () => {
-  const { showSuccess } = useNotification();
-
-  const handleSuccess = (approvalData) => {
-    console.log('Extension approval successful:', approvalData);
-    showSuccess('Duyệt đơn gia hạn thành công!');
-  };
-
   const handleCancel = () => {
     window.location.href = '/admin';
   };
 
   return (
     <ExtensionApprovalPage
-      onSuccess={handleSuccess}
       onCancel={handleCancel}
     />
   );
@@ -401,20 +389,12 @@ const RoomRegistrationApprovalPageWrapper = () => {
 
 // Room Cancellation Approval Page Wrapper
 const RoomCancellationApprovalPageWrapper = () => {
-  const { showSuccess } = useNotification();
-
-  const handleSuccess = (approvalData) => {
-    console.log('Room cancellation approval successful:', approvalData);
-    showSuccess('Duyệt đơn hủy phòng KTX thành công!');
-  };
-
   const handleCancel = () => {
     window.location.href = '/admin';
   };
 
   return (
     <RoomCancellationApprovalPage
-      onSuccess={handleSuccess}
       onCancel={handleCancel}
     />
   );
@@ -435,23 +415,12 @@ const VehicleRegistrationApprovalPageWrapper = () => {
 
 // Room Type Management Page Wrapper
 const RoomTypeManagementPageWrapper = () => {
-  const { showSuccess } = useNotification();
-
-  const handleSuccess = (managementData) => {
-    console.log('Room type management successful:', managementData);
-    showSuccess('Quản lý loại phòng thành công!');
-    setTimeout(() => {
-      window.location.href = '/admin';
-    }, 1500);
-  };
-
   const handleCancel = () => {
     window.location.href = '/admin';
   };
 
   return (
     <RoomTypeManagementPage
-      onSuccess={handleSuccess}
       onCancel={handleCancel}
     />
   );
@@ -459,8 +428,6 @@ const RoomTypeManagementPageWrapper = () => {
 
 // Create Admin Account Page Wrapper
 const CreateAdminAccountPageWrapper = () => {
-  const { showSuccess } = useNotification();
-
   const handleSuccess = (adminData) => {
     console.log('Admin account created successfully:', adminData);
     setTimeout(() => {
@@ -482,15 +449,6 @@ const CreateAdminAccountPageWrapper = () => {
 
 // Room Transfer Approval Page Wrapper
 const RoomTransferApprovalPageWrapper = () => {
-  const { showSuccess } = useNotification();
-
-  const handleSuccess = (approvalData) => {
-    console.log('Room transfer approval successful:', approvalData);
-    showSuccess('Duyệt đơn chuyển phòng KTX thành công!');
-    setTimeout(() => {
-      window.location.href = '/admin';
-    }, 1500);
-  };
 
   const handleCancel = () => {
     window.location.href = '/admin';
@@ -498,7 +456,6 @@ const RoomTransferApprovalPageWrapper = () => {
 
   return (
     <RoomTransferApprovalPage
-      onSuccess={handleSuccess}
       onCancel={handleCancel}
     />
   );
@@ -506,11 +463,8 @@ const RoomTransferApprovalPageWrapper = () => {
 
 // Electricity Water Bill Creation Page Wrapper
 const ElectricityWaterBillCreationPageWrapper = () => {
-  const { showSuccess } = useNotification();
-
   const handleSuccess = (billData) => {
     console.log('Electricity water bill creation successful:', billData);
-    showSuccess('Tạo hóa đơn điện nước thành công!');
     setTimeout(() => {
       window.location.href = '/admin';
     }, 1500);
@@ -530,28 +484,38 @@ const ElectricityWaterBillCreationPageWrapper = () => {
 
 // Health Checkup Management Page Wrapper
 const HealthCheckUpManagementPageWrapper = () => {
-  return <HealthCheckUpManagementPage />;
-}
+  const handleCancel = () => {
+    window.location.href = '/admin';
+  };
+
+  return (
+    <HealthCheckUpManagementPage
+      onCancel={handleCancel}
+    />
+  );
+};
 
 // Room Management Page Wrapper
 const RoomManagementPageWrapper = () => {
-  const { showSuccess } = useNotification();
-
-  const handleSuccess = (roomData) => {
-    console.log('Room management successful:', roomData);
-    showSuccess('Quản lý phòng thành công!');
-    setTimeout(() => {
-      window.location.href = '/admin';
-    }, 1500);
-  };
-
   const handleCancel = () => {
     window.location.href = '/admin';
   };
 
   return (
     <RoomManagementPage
-      onSuccess={handleSuccess}
+      onCancel={handleCancel}
+    />
+  );
+};
+
+// Building Management Page Wrapper
+const BuildingManagementPageWrapper = () => {
+  const handleCancel = () => {
+    window.location.href = '/admin';
+  };
+
+  return (
+    <BuildingManagementPage
       onCancel={handleCancel}
     />
   );

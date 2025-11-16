@@ -5,8 +5,24 @@ const roomApi = {
         return axiosClient.get("/rooms/room-type"); // không cần token
     },
 
+    getRoomTypeForAdmin(buildingId) {
+        return axiosClient.get("/rooms/room-type/admin", { params: { buildingId } });
+    },
+
+    createRoomType(data) {
+        return axiosClient.post("/rooms/room-type", data);
+    },
+
     getRoom(data) {
         return axiosClient.get("/rooms/", { params: data });
+    },
+
+    getRoomForAdmin(data) {
+        return axiosClient.get("/rooms/admin", { params: data });
+    },
+
+    createRoom(data) {
+        return axiosClient.post("/rooms/", data);
     }
 };
 
