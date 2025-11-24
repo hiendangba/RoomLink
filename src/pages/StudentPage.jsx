@@ -10,9 +10,6 @@ const StudentPage = () => {
     window.location.href = '/edit-profile';
   };
 
-  const handleFaceRegistration = () => {
-    window.location.href = '/register-face';
-  };
 
   const handleChangePassword = () => {
     window.location.href = '/change-password';
@@ -46,6 +43,10 @@ const StudentPage = () => {
     window.location.href = '/vehicle-registration';
   };
 
+  const handleMyRoom = () => {
+    window.location.href = '/my-room';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="w-full px-4 py-8">
@@ -59,6 +60,10 @@ const StudentPage = () => {
               Quản lý phòng ở
             </h2>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
+              <div className="bg-blue-50 p-6 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => window.location.href = '/my-room-info'}>
+                <h3 className="text-lg font-semibold text-blue-800 mb-2">Xem thông tin phòng</h3>
+                <p className="text-blue-600 text-sm">Xem chi tiết thông tin phòng và hợp đồng của bạn</p>
+              </div>
               <div className="bg-orange-50 p-6 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors" onClick={handleRoomExtension}>
                 <h3 className="text-lg font-semibold text-orange-800 mb-2">Gia hạn thời gian ở</h3>
                 <p className="text-orange-600 text-sm">Gia hạn thời gian ở KTX</p>
@@ -120,10 +125,6 @@ const StudentPage = () => {
               <div className="bg-blue-50 p-6 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors" onClick={handleEditProfile}>
                 <h3 className="text-lg font-semibold text-blue-800 mb-2">Thông tin cá nhân</h3>
                 <p className="text-blue-600 text-sm">Xem và chỉnh sửa thông tin cá nhân</p>
-              </div>
-              <div className="bg-green-50 p-6 rounded-lg cursor-pointer hover:bg-green-100 transition-colors" onClick={handleFaceRegistration}>
-                <h3 className="text-lg font-semibold text-green-800 mb-2">Đăng ký khuôn mặt</h3>
-                <p className="text-green-600 text-sm">Đăng ký khuôn mặt để đăng nhập nhanh</p>
               </div>
               <div className="bg-purple-50 p-6 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors" onClick={handleChangePassword}>
                 <h3 className="text-lg font-semibold text-purple-800 mb-2">Đặt lại mật khẩu</h3>

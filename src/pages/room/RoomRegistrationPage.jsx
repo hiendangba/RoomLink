@@ -7,7 +7,8 @@ import RoomSelection from '../../components/room/RoomSelection';
 import { useNotification } from '../../contexts/NotificationContext';
 import ImageEditorModal from '../../components/modal/ImageEditorModal';
 import jsQR from 'jsqr';
-import { authApi } from "../../api"
+import { authApi } from "../../api";
+import { hasFace } from '../../services/faceDetectionService';
 const RoomRegistrationPage = () => {
   const [currentStep, setCurrentStep] = useState('room-selection'); // room-selection, personal-info
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -123,7 +124,7 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
     }
   };
 
-  const handleFileChange = (fieldName) => (file) => {
+  const handleFileChange = (fieldName) => async (file) => {
     console.log('handleFileChange called for:', fieldName, file);
 
     if (!file) {
@@ -149,6 +150,28 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
         setQrCroppedPreview(null);
       }
       // Form data will be cleared when scanning QR in handleImageEditConfirm
+    }
+
+    // For avatar (3x4), check if face is detected before proceeding
+    if (fieldName === 'avatar') {
+      try {
+        const faceDetected = await hasFace(file);
+        
+        if (!faceDetected) {
+          showError('Không phát hiện được khuôn mặt trong ảnh. Vui lòng chọn ảnh có khuôn mặt rõ ràng.');
+          setErrors(prev => ({
+            ...prev,
+            avatar: 'Không phát hiện được khuôn mặt trong ảnh'
+          }));
+          return; // Don't proceed if no face detected
+        }
+        
+        showSuccess('Đã phát hiện khuôn mặt!');
+      } catch (error) {
+        console.error('Error detecting face:', error);
+        // If face detection fails, still allow user to proceed (graceful degradation)
+        showError('Không thể kiểm tra khuôn mặt. Vui lòng đảm bảo ảnh có khuôn mặt rõ ràng.');
+      }
     }
 
     // Store file temporarily (not in state yet)

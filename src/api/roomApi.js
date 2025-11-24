@@ -23,6 +23,10 @@ const roomApi = {
 
     createRoom(data) {
         return axiosClient.post("/rooms/", data);
+    },
+
+    getRoomByUser() {
+        return axiosClient.get("/rooms/active");
     }
 };
 

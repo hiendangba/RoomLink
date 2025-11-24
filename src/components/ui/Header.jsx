@@ -31,11 +31,6 @@ const Header = () => {
             </div>
             <h1 className="text-2xl font-bold">RoomLink</h1>
           </div>
-          <nav className="hidden md:flex space-x-6">
-            <a href="/" className="hover:text-blue-200 transition-colors">Trang chủ</a>
-            <a href="#" className="hover:text-blue-200 transition-colors">Phòng</a>
-            <a href="#" className="hover:text-blue-200 transition-colors">Liên hệ</a>
-          </nav>
           
           {isAuthenticated() ? (
             <div className="flex items-center space-x-4">

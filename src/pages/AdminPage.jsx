@@ -6,9 +6,6 @@ const AdminPage = () => {
     window.location.href = '/change-password';
   };
 
-  const handleFaceRegistration = () => {
-    window.location.href = '/register-face';
-  };
 
   const handleExtensionApproval = () => {
     window.location.href = '/extension-approval';
@@ -150,10 +147,6 @@ const AdminPage = () => {
               <div className="bg-purple-50 p-6 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors" onClick={handleChangePassword}>
                 <h3 className="text-lg font-semibold text-purple-800 mb-2">Đặt lại mật khẩu</h3>
                 <p className="text-purple-600 text-sm">Thay đổi mật khẩu tài khoản</p>
-              </div>
-              <div className="bg-green-50 p-6 rounded-lg cursor-pointer hover:bg-green-100 transition-colors" onClick={handleFaceRegistration}>
-                <h3 className="text-lg font-semibold text-green-800 mb-2">Đăng ký khuôn mặt</h3>
-                <p className="text-green-600 text-sm">Đăng ký khuôn mặt để đăng nhập nhanh</p>
               </div>
               <div className="bg-purple-50 p-6 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors" onClick={handleCreateAdminAccount}>
                 <h3 className="text-lg font-semibold text-purple-800 mb-2">Tạo tài khoản Admin</h3>

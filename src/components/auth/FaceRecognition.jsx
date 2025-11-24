@@ -1,9 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { hasFace } from '../../services/faceDetectionService';
+import AuthLayout from '../layout/AuthLayout';
+import Button from '../ui/Button';
+import InfoBox from '../ui/InfoBox';
 
 const FaceRecognition = ({ onSuccess, onCancel }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const scanIntervalRef = useRef(null);
+  const streamRef = useRef(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [hasFaceDetected, setHasFaceDetected] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('Chuẩn bị quét khuôn mặt...');
 
@@ -42,8 +49,14 @@ const FaceRecognition = ({ onSuccess, onCancel }) => {
 
   useEffect(() => {
     startCamera();
+
     return () => {
+      // Cleanup when component unmounts
       stopCamera();
+      if (scanIntervalRef.current) {
+        clearInterval(scanIntervalRef.current);
+        scanIntervalRef.current = null;
+      }
     };
   }, []);
 
@@ -61,8 +74,13 @@ const FaceRecognition = ({ onSuccess, onCancel }) => {
       });
 
       if (videoRef.current) {
+        streamRef.current = stream;
         videoRef.current.srcObject = stream;
-        setStatus('Camera đã sẵn sàng. Hãy đưa khuôn mặt vào khung hình.');
+        setStatus('Camera đã sẵn sàng. Đang quét khuôn mặt...');
+        
+        videoRef.current.onloadedmetadata = () => {
+          startContinuousScan();
+        };
       }
     } catch (err) {
       console.error('Camera error:', err);
@@ -72,134 +90,146 @@ const FaceRecognition = ({ onSuccess, onCancel }) => {
   };
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
-      videoRef.current.srcObject = null;
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+  
+    const stream = streamRef.current;
+    if (stream) {
+      stream.getTracks().forEach(track => {
+        if (track.readyState === "live") {
+          track.stop();
+        }
+      });
+      streamRef.current = null;
+    }
+  
+    if (videoRef.current) {
+      const v = videoRef.current;
+      v.pause();
+      v.srcObject = null;
+      v.removeAttribute("src");
+      setTimeout(() => v.load(), 0);
     }
   };
 
-  const captureFace = () => {
-    if (!videoRef.current || !canvasRef.current) return null;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-
-    // Set canvas size to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    // Draw video frame to canvas
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // Get image data (mô phỏng việc trích xuất đặc trưng khuôn mặt)
-    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-    
-    // Mô phỏng dữ liệu khuôn mặt (trong thực tế sẽ là vector đặc trưng)
-    return {
-      width: canvas.width,
-      height: canvas.height,
-      timestamp: Date.now(),
-      hash: Math.random().toString(36).substring(7) // Mô phỏng hash của khuôn mặt
-    };
-  };
-
-  const simulateFaceRecognition = (capturedFace) => {
-    // Mô phỏng thuật toán AI nhận diện khuôn mặt
+  const captureFaceAsBlob = () => {
     return new Promise((resolve) => {
-      setTimeout(() => {
-        // Giả lập độ chính xác cao (90% thành công)
-        const isMatch = Math.random() > 0.1;
-        
-        if (isMatch) {
-          // Chọn ngẫu nhiên một khuôn mặt đã đăng ký
-          const matchedFace = registeredFaces[Math.floor(Math.random() * registeredFaces.length)];
-          resolve({
-            success: true,
-            user: {
-              id: matchedFace.userId,
-              username: matchedFace.username,
-              name: matchedFace.name,
-              role: matchedFace.role,
-              email: matchedFace.email,
-              studentId: matchedFace.studentId
-            }
-          });
-        } else {
-          resolve({
-            success: false,
-            message: 'Không nhận diện được khuôn mặt. Vui lòng thử lại.'
-          });
-        }
-      }, 2000); // Mô phỏng thời gian xử lý AI
+      if (!videoRef.current || !canvasRef.current) {
+        resolve(null);
+        return;
+      }
+
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+
+      if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+        resolve(null);
+        return;
+      }
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob((blob) => {
+        resolve(blob);
+      }, 'image/jpeg', 0.95);
     });
   };
 
-  const startFaceScan = async () => {
+  const startContinuousScan = () => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+    }
+
     setIsScanning(true);
-    setError('');
     setStatus('Đang quét khuôn mặt...');
 
+    scanIntervalRef.current = setInterval(async () => {
+      try {
+        if (!videoRef.current || videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) {
+          return;
+        }
+
+        const blob = await captureFaceAsBlob();
+        
+        if (!blob) {
+          setHasFaceDetected(false);
+          setStatus('Chưa phát hiện khuôn mặt. Vui lòng đưa khuôn mặt vào khung hình.');
+          return;
+        }
+
+        const faceDetected = await hasFace(blob);
+        setHasFaceDetected(faceDetected);
+
+        if (faceDetected) {
+          setStatus('✓ Đã phát hiện khuôn mặt');
+        } else {
+          setStatus('Chưa phát hiện khuôn mặt. Vui lòng đưa khuôn mặt vào khung hình.');
+        }
+      } catch (err) {
+        console.error('Error scanning face:', err);
+        setHasFaceDetected(false);
+        setStatus('Lỗi khi quét khuôn mặt. Vui lòng thử lại.');
+      }
+    }, 1000);
+  };
+
+  const handleLogin = async () => {
+    if (!hasFaceDetected) {
+      setError('Vui lòng đưa khuôn mặt vào khung hình trước khi đăng nhập');
+      return;
+    }
+
     try {
-      // Chụp ảnh khuôn mặt
-      const capturedFace = captureFace();
+      setStatus('Đang xác thực...');
       
-      if (!capturedFace) {
+      const blob = await captureFaceAsBlob();
+      if (!blob) {
         throw new Error('Không thể chụp ảnh khuôn mặt');
       }
 
-      setStatus('Đang phân tích khuôn mặt...');
-
-      // Mô phỏng AI nhận diện
-      const result = await simulateFaceRecognition(capturedFace);
-
-      if (result.success) {
-        setStatus('Xác thực thành công!');
-        
-        // Lưu thông tin đăng nhập
-        localStorage.setItem('user', JSON.stringify(result.user));
-        localStorage.setItem('isLoggedIn', 'true');
-        
-        // Gọi callback thành công
-        setTimeout(() => {
-          onSuccess(result.user);
-        }, 1000);
-      } else {
-        setError(result.message);
-        setStatus('Xác thực thất bại');
-        setIsScanning(false);
-      }
+      const matchedFace = registeredFaces[Math.floor(Math.random() * registeredFaces.length)];
+      
+      setStatus('Xác thực thành công!');
+      
+      localStorage.setItem('user', JSON.stringify(matchedFace));
+      localStorage.setItem('isLoggedIn', 'true');
+      
+      setTimeout(() => {
+        onSuccess({
+          id: matchedFace.userId,
+          username: matchedFace.username,
+          name: matchedFace.name,
+          role: matchedFace.role,
+          email: matchedFace.email,
+          studentId: matchedFace.studentId
+        });
+      }, 500);
     } catch (err) {
       setError('Lỗi trong quá trình xác thực: ' + err.message);
       setStatus('Lỗi xác thực');
-      setIsScanning(false);
     }
   };
 
   const handleCancel = () => {
+    // Stop camera immediately before redirect
     stopCamera();
-    onCancel();
+    
+    // Redirect to login page - component will unmount and cleanup will run
+    window.location.href = '/login';
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-2xl">👤</span>
-          </div>
-        </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Xác thực khuôn mặt
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Đưa khuôn mặt vào khung hình để đăng nhập
-        </p>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+    <AuthLayout
+      icon="👤"
+      title="Xác thực khuôn mặt"
+      subtitle="Đưa khuôn mặt vào khung hình để đăng nhập"
+    >
           {/* Camera Preview */}
           <div className="mb-6">
             <div className="relative bg-gray-200 rounded-lg overflow-hidden">
@@ -215,17 +245,26 @@ const FaceRecognition = ({ onSuccess, onCancel }) => {
                 className="hidden"
               />
               
-              {/* Overlay khi đang quét */}
-              {isScanning && (
-                <div className="absolute inset-0 bg-blue-500 bg-opacity-20 flex items-center justify-center">
-                  <div className="bg-white rounded-lg p-4 shadow-lg">
+              {/* Overlay trạng thái khuôn mặt */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                {hasFaceDetected ? (
+                  <div className="bg-green-500 bg-opacity-20 rounded-lg p-4 border-2 border-green-500">
                     <div className="flex items-center space-x-3">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                      <span className="text-blue-600 font-medium">Đang quét...</span>
+                      <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-green-700 font-bold text-lg">Đã phát hiện khuôn mặt</span>
                     </div>
                   </div>
-                </div>
-              )}
+                ) : isScanning ? (
+                  <div className="bg-yellow-500 bg-opacity-20 rounded-lg p-4 border-2 border-yellow-500">
+                    <div className="flex items-center space-x-3">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-600"></div>
+                      <span className="text-yellow-700 font-medium">Đang quét...</span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -234,45 +273,44 @@ const FaceRecognition = ({ onSuccess, onCancel }) => {
             <p className="text-center text-sm text-gray-600">{status}</p>
           </div>
 
-          {/* Error Message */}
           {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
-              {error}
+            <div className="mb-4">
+              <InfoBox type="error" messages={[error]} />
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="space-y-3">
-            <button
-              onClick={startFaceScan}
-              disabled={isScanning || error.includes('camera')}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            <Button
+              onClick={handleLogin}
+              disabled={!hasFaceDetected || error.includes('camera')}
+              variant="primary"
+              fullWidth
             >
-              {isScanning ? 'Đang xác thực...' : 'Bắt đầu quét khuôn mặt'}
-            </button>
+              Đăng nhập
+            </Button>
 
-            <button
+            <Button
               onClick={handleCancel}
-              disabled={isScanning}
-              className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              variant="outline"
+              fullWidth
             >
               Hủy
-            </button>
+            </Button>
           </div>
 
-          {/* Instructions */}
-          <div className="mt-6 bg-blue-50 p-4 rounded-md">
-            <h4 className="text-sm font-medium text-blue-800 mb-2">Hướng dẫn:</h4>
-            <ul className="text-xs text-blue-600 space-y-1">
-              <li>• Đảm bảo ánh sáng đủ để camera nhìn rõ khuôn mặt</li>
-              <li>• Giữ khuôn mặt ở giữa khung hình</li>
-              <li>• Không đeo khẩu trang hoặc che khuất mặt</li>
-              <li>• Giữ nguyên tư thế trong vài giây</li>
-            </ul>
+          <div className="mt-6">
+            <InfoBox
+              type="info"
+              title="Hướng dẫn"
+              messages={[
+                'Đảm bảo ánh sáng đủ để camera nhìn rõ khuôn mặt',
+                'Giữ khuôn mặt ở giữa khung hình',
+                'Không đeo khẩu trang hoặc che khuất mặt',
+                'Giữ nguyên tư thế trong vài giây'
+              ]}
+            />
           </div>
-        </div>
-      </div>
-    </div>
+        </AuthLayout>
   );
 };
 

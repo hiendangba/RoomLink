@@ -6,12 +6,12 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import RoomRegistrationPage from './pages/room/RoomRegistrationPage';
 import EditProfilePage from './pages/profile/EditProfilePage';
-import FaceRegistrationPage from './pages/auth/FaceRegistrationPage';
 import ChangePasswordPage from './pages/auth/ChangePasswordPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import RoomExtensionPage from './pages/room/RoomExtensionPage';
 import RoomTransferPage from './pages/room/RoomTransferPage';
 import RoomCancellationPage from './pages/room/RoomCancellationPage';
+import RoomInfoPage from './pages/room/RoomInfoPage';
 import BillsViewPage from './pages/billing/BillsViewPage';
 import FeesViewPage from './pages/billing/FeesViewPage';
 import PaymentPage from './pages/billing/PaymentPage';
@@ -45,9 +45,9 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register-room" element={<RoomRegistrationPageWrapper />} />
             <Route path="/edit-profile" element={<EditProfilePageWrapper />} />
-            <Route path="/register-face" element={<FaceRegistrationPageWrapper />} />
             <Route path="/change-password" element={<ChangePasswordPageWrapper />} />
             <Route path="/forgot-password" element={<ForgotPasswordPageWrapper />} />
+            <Route path="/my-room-info" element={<RoomInfoPageWrapper />} />
             <Route path="/room-extension" element={<RoomExtensionPageWrapper />} />
             <Route path="/room-transfer" element={<RoomTransferPageWrapper />} />
             <Route path="/room-cancellation" element={<RoomCancellationPageWrapper />} />
@@ -95,26 +95,6 @@ const EditProfilePageWrapper = () => {
   );
 };
 
-// Face Registration Page Wrapper
-const FaceRegistrationPageWrapper = () => {
-  const handleSuccess = () => {
-    console.log('Face registration successful');
-    setTimeout(() => {
-      window.location.href = '/student';
-    }, 1500);
-  };
-
-  const handleCancel = () => {
-    window.location.href = '/student';
-  };
-
-  return (
-    <FaceRegistrationPage
-      onSuccess={handleSuccess}
-      onCancel={handleCancel}
-    />
-  );
-};
 
 // Change Password Page Wrapper
 const ChangePasswordPageWrapper = () => {
@@ -204,6 +184,19 @@ const ForgotPasswordPageWrapper = () => {
   return (
     <ForgotPasswordPage
       onSuccess={handleSuccess}
+      onCancel={handleCancel}
+    />
+  );
+};
+
+// Room Info Page Wrapper
+const RoomInfoPageWrapper = () => {
+  const handleCancel = () => {
+    window.location.href = '/student';
+  };
+
+  return (
+    <RoomInfoPage
       onCancel={handleCancel}
     />
   );

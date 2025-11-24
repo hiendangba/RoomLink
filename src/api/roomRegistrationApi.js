@@ -29,6 +29,12 @@ const roomRegistrationApi = {
     
     return axiosClient.delete('/room-registrations/reject', { data: requestData });
   },
+
+  // DELETE - Hủy đăng ký phòng (cho sinh viên)
+  // data: { reason: string (optional), checkoutDate: string (required, ISO date) }
+  cancelRoomRegistration: (data) => {
+    return axiosClient.delete('/room-registrations/cancel', { data });
+  },
 };
 
 export default roomRegistrationApi;
