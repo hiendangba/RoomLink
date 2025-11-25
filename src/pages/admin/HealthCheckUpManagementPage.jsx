@@ -459,7 +459,8 @@ const HealthCheckUpManagementPage = ({ onSuccess, onCancel }) => {
                 : await healthCheckApi.createHealthCheck(payload);
 
             if (res.success) {
-                showSuccess(`Đợt khám ${selectedHealthCheck?.id ? "cập nhật" : "tạo"} thành công!`);
+                const successMessage = res.message || res.data?.message || `Đợt khám ${selectedHealthCheck?.id ? "cập nhật" : "tạo"} thành công!`;
+                showSuccess(successMessage);
                 setTimeout(() => {
                     handleBackToList();
                 }, 1500);

@@ -85,12 +85,8 @@ const RoomExtension = ({ onSuccess, onCancel }) => {
       });
 
       if (response.success) {
-        // Calculate new end date để hiển thị
-        const currentEndDate = new Date(roomData.endDate);
-        const newEndDate = new Date(currentEndDate);
-        newEndDate.setMonth(newEndDate.getMonth() + selectedOption.duration);
-
-        showSuccess(`Đơn yêu cầu gia hạn đã được gửi thành công! Thời gian gia hạn: ${selectedOption.label}. Ngày hết hạn mới dự kiến: ${formatDate(newEndDate.toISOString())}. Đơn của bạn sẽ được xem xét trong vòng 24-48 giờ.`);
+        const successMessage = response.message || response.data?.message || 'Đơn yêu cầu gia hạn đã được gửi thành công!';
+        showSuccess(successMessage);
         
         if (onSuccess) {
           onSuccess();

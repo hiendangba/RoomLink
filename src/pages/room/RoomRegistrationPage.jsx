@@ -324,7 +324,8 @@ const PersonalInfoForm = ({ selectedRoom, selectedRoomSlot, onBack, onCancel }) 
       const response = await authApi.register(registrationData);
 
       if (response.success === true) {
-        showSuccess("Đăng ký phòng thành công! Hồ sơ của bạn đang được xét duyệt.");
+        const successMessage = response.message || response.data?.message || "Đăng ký phòng thành công!";
+        showSuccess(successMessage);
         setTimeout(() => {
           window.location.href = "/login";
         }, 2000);

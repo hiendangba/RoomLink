@@ -174,7 +174,8 @@ const RoomCancellationContent = ({ onSuccess, onCancel }) => {
       const response = await roomRegistrationApi.cancelRoomRegistration(requestData);
       
       if (response.success) {
-        showSuccess('Đơn yêu cầu hủy phòng đã được gửi thành công! Vui lòng chờ phê duyệt từ quản lý KTX.');
+        const successMessage = response.message || response.data?.message || 'Đơn yêu cầu hủy phòng đã được gửi thành công!';
+        showSuccess(successMessage);
         setShowConfirmModal(false);
         setShowCancellationForm(false);
         setCancellationForm({
@@ -210,12 +211,38 @@ const RoomCancellationContent = ({ onSuccess, onCancel }) => {
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
-    const date = new Date(dateString);
-    // Format: ngày/tháng/năm (ví dụ: 15/03/2024)
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
+    try {
+      // Xử lý dateString có thể là DATEONLY (YYYY-MM-DD) hoặc ISO string
+      // Nếu là format YYYY-MM-DD (từ input type="date"), parse trực tiếp để tránh timezone issues
+      if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+        // Format YYYY-MM-DD hoặc YYYY-MM-DDTHH:mm:ss
+        const dateParts = dateString.split('T')[0].split('-');
+        if (dateParts.length === 3) {
+          const year = dateParts[0];
+          const month = dateParts[1];
+          const day = dateParts[2];
+          // Format: ngày/tháng/năm (ví dụ: 15/03/2024)
+          return `${day}/${month}/${year}`;
+        }
+      }
+      
+      // Fallback: dùng Date object cho các format khác
+      const date = new Date(dateString);
+      
+      // Kiểm tra date hợp lệ
+      if (isNaN(date.getTime())) {
+        return dateString; // Trả về nguyên bản nếu không parse được
+      }
+      
+      // Format: ngày/tháng/năm (ví dụ: 15/03/2024)
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return dateString; // Trả về nguyên bản nếu có lỗi
+    }
   };
 
   const formatCurrency = (amount) => {

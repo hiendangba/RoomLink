@@ -438,9 +438,8 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
       });
 
       if (response.success) {
-        const electricityCount = validItems.filter(b => b.type === 'electricity').length;
-        const waterCount = validItems.filter(b => b.type === 'water').length;
-        showSuccess(`Đã tạo thành công ${electricityCount} hóa đơn điện và ${waterCount} hóa đơn nước (tổng ${validItems.length} hóa đơn)!`);
+        const successMessage = response.message || response.data?.message || 'Đã tạo hóa đơn thành công!';
+        showSuccess(successMessage);
         
         // If creating selected items, remove them from processedData
         if (itemsToCreate) {

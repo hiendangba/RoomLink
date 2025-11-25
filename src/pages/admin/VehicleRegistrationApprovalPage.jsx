@@ -230,17 +230,13 @@ const VehicleRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
       const response = await numberPlateApi.approveNumberPlate(selectedRequests);
       const result = response.data?.data || response.data;
       
-      const approvedCount = result.approved?.length || 0;
-      const skippedCount = result.skipped?.length || 0;
+      const successMessage = response.message || response.data?.message;
+      const errorMessage = response.message || response.data?.message;
       
-      if (approvedCount > 0) {
-        if (skippedCount > 0) {
-          showSuccess(`Đã duyệt thành công ${approvedCount} đơn. ${skippedCount} đơn bị bỏ qua.`);
-        } else {
-          showSuccess(`Đã duyệt thành công ${approvedCount} đơn đăng ký biển số!`);
-        }
-      } else if (skippedCount > 0) {
-        showError(`Không thể duyệt đơn. Tất cả ${skippedCount} đơn đều bị bỏ qua.`);
+      if (successMessage) {
+        showSuccess(successMessage);
+      } else if (errorMessage) {
+        showError(errorMessage);
       }
       
       // Reload danh sách và statistics
@@ -290,17 +286,13 @@ const VehicleRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
       const result = response.data?.data || response.data;
       console.log('Kết quả từ chối:', result);
       
-      const rejectedCount = result.rejected?.length || 0;
-      const skippedCount = result.skipped?.length || 0;
+      const successMessage = response.message || response.data?.message;
+      const errorMessage = response.message || response.data?.message;
       
-      if (rejectedCount > 0) {
-        if (skippedCount > 0) {
-          showSuccess(`Đã từ chối ${rejectedCount} đơn. ${skippedCount} đơn bị bỏ qua.`);
-        } else {
-          showSuccess(`Đã từ chối ${rejectedCount} đơn đăng ký biển số!`);
-        }
-      } else if (skippedCount > 0) {
-        showError(`Không thể từ chối đơn. Tất cả ${skippedCount} đơn đều bị bỏ qua.`);
+      if (successMessage) {
+        showSuccess(successMessage);
+      } else if (errorMessage) {
+        showError(errorMessage);
       }
       
       setShowRejectionModal(false);

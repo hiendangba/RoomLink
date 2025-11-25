@@ -115,11 +115,8 @@ const RoomTransferContent = ({ onSuccess, onCancel }) => {
       });
 
       if (response.success) {
-        // Find slot number from room data
-        const selectedSlot = selectedRoomData.room.roomSlots?.find(slot => slot.id === selectedRoomData.slotId);
-        const slotNumber = selectedSlot?.slotNumber || 'N/A';
-        
-        showSuccess(`Đơn yêu cầu chuyển phòng đã được gửi thành công! Từ phòng: ${roomData?.roomNumber} → Đến phòng: ${selectedRoomData.room.roomNumber}, vị trí giường ${slotNumber}. Đơn sẽ được xem xét và duyệt bởi quản trị viên.`);
+        const successMessage = response.message || response.data?.message || 'Đơn yêu cầu chuyển phòng đã được gửi thành công!';
+        showSuccess(successMessage);
         
         if (onSuccess) {
           onSuccess();

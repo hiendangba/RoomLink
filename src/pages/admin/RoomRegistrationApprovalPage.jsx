@@ -233,17 +233,13 @@ const RoomRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
       const response = await roomRegistrationApi.approveRoomRegistration(selectedRequests);
       const result = response.data?.data || response.data;
       
-      const approvedCount = result.approved?.length || 0;
-      const skippedCount = result.skipped?.length || 0;
+      const successMessage = response.message || response.data?.message;
+      const errorMessage = response.message || response.data?.message;
       
-      if (approvedCount > 0) {
-        if (skippedCount > 0) {
-          showSuccess(`Đã duyệt thành công ${approvedCount} đơn. ${skippedCount} đơn bị bỏ qua.`);
-        } else {
-          showSuccess(`Đã duyệt thành công ${approvedCount} đơn đăng ký!`);
-        }
-      } else if (skippedCount > 0) {
-        showError(`Không thể duyệt đơn. Tất cả ${skippedCount} đơn đều bị bỏ qua.`);
+      if (successMessage) {
+        showSuccess(successMessage);
+      } else if (errorMessage) {
+        showError(errorMessage);
       }
       
       // Reload danh sách và statistics
@@ -293,17 +289,13 @@ const RoomRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
       const result = response.data?.data || response.data;
       console.log('Kết quả từ chối:', result);
       
-      const deletedCount = result.deleted?.length || 0;
-      const skippedCount = result.skipped?.length || 0;
+      const successMessage = response.message || response.data?.message;
+      const errorMessage = response.message || response.data?.message;
       
-      if (deletedCount > 0) {
-        if (skippedCount > 0) {
-          showSuccess(`Đã từ chối ${deletedCount} đơn. ${skippedCount} đơn bị bỏ qua.`);
-        } else {
-          showSuccess(`Đã từ chối ${deletedCount} đơn đăng ký!`);
-        }
-      } else if (skippedCount > 0) {
-        showError(`Không thể từ chối đơn. Tất cả ${skippedCount} đơn đều bị bỏ qua.`);
+      if (successMessage) {
+        showSuccess(successMessage);
+      } else if (errorMessage) {
+        showError(errorMessage);
       }
       
       setShowRejectionModal(false);
