@@ -136,22 +136,33 @@ const RoomExtension = ({ onSuccess, onCancel }) => {
     return diffDays > 0 ? diffDays : 0;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <LoadingState isLoading={true} loadingText="Đang tải thông tin hợp đồng..." className="py-12" />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const remainingDays = roomData ? calculateDaysRemaining(roomData.endDate) : 0;
+  const monthlyFee = roomData?.monthlyFee || 0;
 
-  if (!roomData) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header - Luôn hiển thị */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Gia hạn thời gian ở KTX</h1>
+          <p className="mt-2 text-gray-600">Gia hạn thời gian ở ký túc xá của bạn</p>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Contract Information - Loading */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Thông tin hợp đồng hiện tại</h2>
+              <LoadingState isLoading={true} loadingText="" className="py-8" />
+            </div>
+
+            {/* Extension Form - Loading */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Chọn thời gian gia hạn</h2>
+              <LoadingState isLoading={true} loadingText="" className="py-8" />
+            </div>
+          </div>
+        ) : !roomData ? (
           <div className="bg-white rounded-lg shadow-md p-6">
             <InfoBox 
               type="info" 
@@ -163,29 +174,14 @@ const RoomExtension = ({ onSuccess, onCancel }) => {
               </Button>
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  const remainingDays = calculateDaysRemaining(roomData.endDate);
-  const monthlyFee = roomData.monthlyFee || 0;
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Gia hạn thời gian ở KTX</h1>
-          <p className="mt-2 text-gray-600">Gia hạn thời gian ở ký túc xá của bạn</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Contract Information */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Thông tin hợp đồng hiện tại</h2>
-            
-            <div className="space-y-4">
+        ) : !loading && roomData ? (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Contract Information */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Thông tin hợp đồng hiện tại</h2>
+                
+                <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-500">Số phòng</label>
@@ -340,6 +336,8 @@ const RoomExtension = ({ onSuccess, onCancel }) => {
             ]}
           />
         </div>
+          </>
+        ) : null}
       </div>
     </div>
   );

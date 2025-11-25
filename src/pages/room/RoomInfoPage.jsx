@@ -5,6 +5,7 @@ import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import LoadingState from '../../components/ui/LoadingState';
 import InfoBox from '../../components/ui/InfoBox';
+import StatusBadge from '../../components/ui/StatusBadge';
 import roomApi from '../../api/roomApi';
 
 const RoomInfoPage = ({ onCancel }) => {
@@ -84,20 +85,6 @@ const RoomInfoPage = ({ onCancel }) => {
     }).format(numAmount);
   };
 
-  const getStatusBadge = (status) => {
-    const statusMap = {
-      'CONFIRMED': { text: 'Đã xác nhận', color: 'bg-green-100 text-green-800' },
-      'PENDING': { text: 'Chờ duyệt', color: 'bg-yellow-100 text-yellow-800' },
-      'CANCELLED': { text: 'Đã hủy', color: 'bg-red-100 text-red-800' },
-      'EXPIRED': { text: 'Hết hạn', color: 'bg-gray-100 text-gray-800' }
-    };
-    const statusInfo = statusMap[status] || { text: status, color: 'bg-gray-100 text-gray-800' };
-    return (
-      <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${statusInfo.color}`}>
-        {statusInfo.text}
-      </span>
-    );
-  };
 
   return (
     <PageLayout
@@ -161,7 +148,7 @@ const RoomInfoPage = ({ onCancel }) => {
           <div className="bg-white border border-gray-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-800">Trạng thái hợp đồng</h2>
-              {getStatusBadge(roomData.status)}
+              <StatusBadge status={roomData.status} />
             </div>
             <div className="grid grid-cols-1 gap-4">
               <div>

@@ -397,8 +397,8 @@ const VehicleRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
               <p className="text-2xl font-bold text-red-900">{statistics.rejected}</p>
             </div>
           </div>
-        </div>
-      </div>
+            </div>
+          </div>
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
         <div className="flex items-center space-x-4 flex-1">
@@ -424,11 +424,11 @@ const VehicleRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
             />
           </div>
         </div>
-      </div>
+          </div>
 
-      {selectedRequests.length > 0 && (
-        <div className="flex items-center space-x-4 mb-6 p-4 bg-blue-50 rounded-lg">
-          <span className="text-blue-800 font-medium">Đã chọn {selectedRequests.length} đơn</span>
+          {selectedRequests.length > 0 && (
+            <div className="flex items-center space-x-4 mb-6 p-4 bg-blue-50 rounded-lg">
+              <span className="text-blue-800 font-medium">Đã chọn {selectedRequests.length} đơn</span>
           <Button
             onClick={handleApproveRequests}
             variant="success"
@@ -445,8 +445,8 @@ const VehicleRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
           >
             Từ chối đã chọn
           </Button>
-        </div>
-      )}
+            </div>
+          )}
 
       <LoadingState
         isLoading={loading}
@@ -454,12 +454,12 @@ const VehicleRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
         emptyState={
           <div className="text-center py-12 text-gray-500">
             <p>Không có đơn đăng ký biển số nào.</p>
-          </div>
+            </div>
         }
       >
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left">
@@ -496,9 +496,9 @@ const VehicleRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentRequests.map((request) => (
-                  <tr key={request.id} className="hover:bg-gray-50">
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {currentRequests.map((request) => (
+                        <tr key={request.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
                         type="checkbox"
@@ -545,12 +545,12 @@ const VehicleRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
                         Chi tiết
                       </Button>
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
         {totalPages > 1 && (
           <div className="mt-8">
@@ -604,9 +604,9 @@ const VehicleRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
                   <label className="block text-sm font-medium text-gray-700">CCCD</label>
                   <p className="text-gray-900">{selectedRequestDetail?.identification}</p>
                 </div>
-              </div>
-            </div>
-            
+        </div>
+      </div>
+
             <div>
               <h3 className="text-lg font-semibold text-gray-800 mb-3">Thông tin biển số</h3>
               <div className="grid grid-cols-2 gap-4">
@@ -635,16 +635,16 @@ const VehicleRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
                       }}
                     />
                   </div>
-                </div>
-              </div>
             </div>
+          </div>
+        </div>
             
             <div className="flex justify-end pt-4 border-t border-gray-200">
               <Button onClick={() => setShowDetailModal(false)} variant="outline">
                 Đóng
               </Button>
             </div>
-          </div>
+    </div>
         </ModalBody>
       </BaseModal>
 

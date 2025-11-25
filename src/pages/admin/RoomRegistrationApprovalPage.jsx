@@ -8,6 +8,7 @@ import Select from '../../components/ui/Select';
 import Input from '../../components/ui/Input';
 import Pagination from '../../components/ui/Pagination';
 import LoadingState from '../../components/ui/LoadingState';
+import StatusBadge from '../../components/ui/StatusBadge';
 import RejectionModal from '../../components/modal/RejectionModal';
 import BaseModal, { ModalBody } from '../../components/modal/BaseModal';
 import defaultAvatar from '../../assets/default_avatar_3x4.jpg';
@@ -386,8 +387,8 @@ const RoomRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
               <p className="text-sm font-medium text-green-600">Đã duyệt</p>
               <p className="text-2xl font-bold text-green-900">{statistics.approved}</p>
             </div>
+            </div>
           </div>
-        </div>
           </div>
 
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
@@ -523,15 +524,7 @@ const RoomRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
                       <div className="text-sm text-gray-900">{formatDate(request.registerDate)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        request.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : request.status === 'approved'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {request.status === 'pending' ? 'Chờ duyệt' : request.status === 'approved' ? 'Đã duyệt' : 'Từ chối'}
-                      </span>
+                      <StatusBadge status={request.status} isApprovalStatus={true} size="small" />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <Button
@@ -600,9 +593,9 @@ const RoomRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Trường</label>
                   <p className="text-gray-900">{selectedRequestDetail?.school}</p>
-                </div>
-              </div>
-              
+        </div>
+      </div>
+
               {/* Hiển thị ảnh CCCD và ảnh 3x4 */}
               <div className="mt-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Ảnh đính kèm</h3>
@@ -660,16 +653,16 @@ const RoomRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Ngày đăng ký</label>
                   <p className="text-gray-900">{formatDate(selectedRequestDetail?.registerDate)}</p>
-                </div>
-              </div>
             </div>
+          </div>
+        </div>
             
             <div className="flex justify-end pt-4 border-t border-gray-200">
               <Button onClick={() => setShowDetailModal(false)} variant="outline">
                 Đóng
               </Button>
             </div>
-          </div>
+    </div>
         </ModalBody>
       </BaseModal>
 

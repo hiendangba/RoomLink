@@ -8,6 +8,7 @@ import Select from '../../components/ui/Select';
 import Input from '../../components/ui/Input';
 import Pagination from '../../components/ui/Pagination';
 import LoadingState from '../../components/ui/LoadingState';
+import StatusBadge from '../../components/ui/StatusBadge';
 import RejectionModal from '../../components/modal/RejectionModal';
 import BaseModal, { ModalBody } from '../../components/modal/BaseModal';
 
@@ -372,19 +373,6 @@ const RoomTransferApprovalPage = ({ onSuccess, onCancel }) => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      pending: { text: 'Chờ duyệt', color: 'bg-yellow-100 text-yellow-800' },
-      approved: { text: 'Đã duyệt', color: 'bg-green-100 text-green-800' },
-      rejected: { text: 'Từ chối', color: 'bg-red-100 text-red-800' }
-    };
-    const config = statusConfig[status] || statusConfig.pending;
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
-        {config.text}
-      </span>
-    );
-  };
 
   return (
     <PageLayout
@@ -561,7 +549,7 @@ const RoomTransferApprovalPage = ({ onSuccess, onCancel }) => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(request.status)}
+                      <StatusBadge status={request.status} isApprovalStatus={true} size="small" />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <Button
