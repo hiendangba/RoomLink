@@ -68,6 +68,10 @@ const StudentPage = () => {
                 <h3 className="text-lg font-semibold text-orange-800 mb-2">Gia hạn thời gian ở</h3>
                 <p className="text-orange-600 text-sm">Gia hạn thời gian ở KTX</p>
               </div>
+              <div className="bg-cyan-50 p-6 rounded-lg cursor-pointer hover:bg-cyan-100 transition-colors" onClick={() => window.location.href = '/renewal'}>
+                <h3 className="text-lg font-semibold text-cyan-800 mb-2">Đợt yêu cầu</h3>
+                <p className="text-cyan-600 text-sm">Xem trạng thái đợt yêu cầu về phòng ở (gia hạn, chuyển phòng, hủy phòng)</p>
+              </div>
               <div className="bg-teal-50 p-6 rounded-lg cursor-pointer hover:bg-teal-100 transition-colors" onClick={handleRoomTransfer}>
                 <h3 className="text-lg font-semibold text-teal-800 mb-2">Chuyển phòng</h3>
                 <p className="text-teal-600 text-sm">Chuyển từ phòng hiện tại sang phòng khác</p>

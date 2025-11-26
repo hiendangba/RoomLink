@@ -10,7 +10,7 @@ import Input from '../../components/ui/Input';
 import roomApi from '../../api/roomApi';
 
 // RoomTypeCard component
-const RoomTypeCard = ({ roomType, onViewDetail }) => {
+const RoomTypeCard = ({ roomType, onViewDetail, onEdit, onDelete }) => {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
       {/* Header: tên loại phòng */}
@@ -53,6 +53,26 @@ const RoomTypeCard = ({ roomType, onViewDetail }) => {
           >
             Chi tiết
           </Button>
+          {onEdit && (
+            <Button
+              onClick={() => onEdit(roomType)}
+              variant="outline"
+              size="small"
+              className="px-3 py-1 text-xs bg-green-100 text-green-700 hover:bg-green-200"
+            >
+              Sửa
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              onClick={() => onDelete(roomType)}
+              variant="outline"
+              size="small"
+              className="px-3 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200"
+            >
+              Xóa
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -74,6 +94,8 @@ const RoomTypeManagementPage = ({ onSuccess, onCancel }) => {
   const [formData, setFormData] = useState({ type: '', amenities: [] });
   const [formError, setFormError] = useState('');
   const [customAmenity, setCustomAmenity] = useState('');
+  const [formLoading, setFormLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const availableAmenities = [
     'Giường đơn',
@@ -165,34 +187,67 @@ const RoomTypeManagementPage = ({ onSuccess, onCancel }) => {
     if (!validateForm()) return;
     try {
       setFormError('');
+      setFormLoading(true);
       const requestData = {
         type: formData.type.trim(),
         amenities: formData.amenities
       };
       
-      if (showEditModal) {
-        // Backend không có API update, nên sẽ tạo mới và xóa cũ
-        // Hoặc có thể bỏ qua update nếu backend chưa hỗ trợ
-        showError('Chức năng cập nhật chưa được hỗ trợ. Vui lòng xóa và tạo mới.');
-        return;
-      } else {
-        const response = await roomApi.createRoomType(requestData);
-        if (response.data) {
-          showSuccess('Thêm loại phòng mới thành công.');
+      if (showEditModal && selectedRoomType) {
+        // Update room type
+        const response = await roomApi.updateRoomType(selectedRoomType.id, requestData);
+        if (response.success !== false && response.data) {
+          showSuccess(response.message || response.data?.message || 'Cập nhật loại phòng thành công.');
           await fetchRoomTypes();
-          setTimeout(() => { setShowAddModal(false); }, 1500);
+          setTimeout(() => {
+            setShowEditModal(false);
+            setSelectedRoomType(null);
+          }, 1500);
+        } else {
+          showError(response.message || response.data?.message || 'Có lỗi xảy ra khi cập nhật loại phòng.');
+        }
+      } else {
+        // Create new room type
+        const response = await roomApi.createRoomType(requestData);
+        if (response.success !== false && response.data) {
+          showSuccess(response.message || response.data?.message || 'Thêm loại phòng mới thành công.');
+          await fetchRoomTypes();
+          setTimeout(() => {
+            setShowAddModal(false);
+          }, 1500);
+        } else {
+          showError(response.message || response.data?.message || 'Có lỗi xảy ra khi tạo loại phòng.');
         }
       }
     } catch (error) {
       console.error('Error saving room type:', error);
-      showError(error.response?.data?.message || 'Không thể lưu loại phòng. Vui lòng thử lại.');
+      const errorMessage = error.response?.data?.message || error.message || 'Không thể lưu loại phòng. Vui lòng thử lại.';
+      showError(errorMessage);
+    } finally {
+      setFormLoading(false);
     }
   };
 
   const handleConfirmDelete = async () => {
-    // Backend không có API delete room type
-    showError('Chức năng xóa chưa được hỗ trợ.');
-    setShowDeleteModal(false);
+    if (!selectedRoomType) return;
+    try {
+      setDeleteLoading(true);
+      const response = await roomApi.deleteRoomType(selectedRoomType.id);
+      if (response.success !== false) {
+        showSuccess(response.message || response.data?.message || 'Xóa loại phòng thành công.');
+        await fetchRoomTypes();
+        setShowDeleteModal(false);
+        setSelectedRoomType(null);
+      } else {
+        showError(response.message || response.data?.message || 'Có lỗi xảy ra khi xóa loại phòng.');
+      }
+    } catch (error) {
+      console.error('Error deleting room type:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Không thể xóa loại phòng. Vui lòng thử lại.';
+      showError(errorMessage);
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   return (
@@ -247,6 +302,8 @@ const RoomTypeManagementPage = ({ onSuccess, onCancel }) => {
               key={roomType.id}
               roomType={roomType}
               onViewDetail={handleViewDetail}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
             />
           ))}
         </div>
@@ -389,12 +446,19 @@ const RoomTypeManagementPage = ({ onSuccess, onCancel }) => {
                   setShowEditModal(false);
                   setFormError('');
                   setCustomAmenity('');
+                  setSelectedRoomType(null);
                 }}
                 variant="outline"
+                disabled={formLoading}
               >
                 Hủy
               </Button>
-              <Button onClick={handleSave} variant="primary">
+              <Button 
+                onClick={handleSave} 
+                variant="primary"
+                loading={formLoading}
+                loadingText={showAddModal ? 'Đang thêm...' : 'Đang cập nhật...'}
+              >
                 {showAddModal ? 'Thêm mới' : 'Lưu thay đổi'}
               </Button>
             </div>
@@ -441,7 +505,27 @@ const RoomTypeManagementPage = ({ onSuccess, onCancel }) => {
               </div>
             </div>
             
-            <div className="flex justify-end pt-4 border-t border-gray-200">
+            <div className="flex justify-end space-x-2 pt-4 border-t border-gray-200">
+              <Button 
+                onClick={() => {
+                  setShowDetailModal(false);
+                  handleEdit(selectedRoomType);
+                }} 
+                variant="primary"
+                size="small"
+              >
+                Chỉnh sửa
+              </Button>
+              <Button 
+                onClick={() => {
+                  setShowDetailModal(false);
+                  handleDelete(selectedRoomType);
+                }} 
+                variant="danger"
+                size="small"
+              >
+                Xóa
+              </Button>
               <Button onClick={() => setShowDetailModal(false)} variant="outline">
                 Đóng
               </Button>
@@ -464,10 +548,19 @@ const RoomTypeManagementPage = ({ onSuccess, onCancel }) => {
               {selectedRoomType ? `Bạn có chắc chắn muốn xóa loại phòng "${selectedRoomType.type || selectedRoomType.id}"?` : 'Bạn có chắc chắn muốn xóa loại phòng này?'}
             </p>
             <div className="flex items-center justify-end space-x-4 pt-4 border-t">
-              <Button onClick={() => setShowDeleteModal(false)} variant="outline">
+              <Button 
+                onClick={() => setShowDeleteModal(false)} 
+                variant="outline"
+                disabled={deleteLoading}
+              >
                 Hủy
               </Button>
-              <Button onClick={handleConfirmDelete} variant="danger">
+              <Button 
+                onClick={handleConfirmDelete} 
+                variant="danger"
+                loading={deleteLoading}
+                loadingText="Đang xóa..."
+              >
                 Xóa
               </Button>
             </div>

@@ -17,7 +17,9 @@ export const getStatusText = (status) => {
     'MOVED': 'Đã chuyển phòng',
     'EXTENDING': 'Đang gia hạn',
     'PENDING_EXTENDED': 'Chờ duyệt gia hạn',
-    'EXTENDED': 'Đã gia hạn'
+    'EXTENDED': 'Đã gia hạn',
+    'active': 'Đang hoạt động',
+    'inactive': 'Đã dừng'
   };
 
   return statusMap[status] || status || 'Không xác định';
@@ -38,7 +40,9 @@ export const getStatusColor = (status) => {
     'MOVED': 'bg-purple-100 text-purple-800',
     'EXTENDING': 'bg-orange-100 text-orange-800',
     'PENDING_EXTENDED': 'bg-yellow-100 text-yellow-800',
-    'EXTENDED': 'bg-teal-100 text-teal-800'
+    'EXTENDED': 'bg-teal-100 text-teal-800',
+    'active': 'bg-green-100 text-green-800',
+    'inactive': 'bg-gray-100 text-gray-800'
   };
 
   return colorMap[status] || 'bg-gray-100 text-gray-800';

@@ -12,6 +12,7 @@ import RoomExtensionPage from './pages/room/RoomExtensionPage';
 import RoomTransferPage from './pages/room/RoomTransferPage';
 import RoomCancellationPage from './pages/room/RoomCancellationPage';
 import RoomInfoPage from './pages/room/RoomInfoPage';
+import RenewalManagementPage from './pages/room/RenewalManagementPage';
 import BillsViewPage from './pages/billing/BillsViewPage';
 import FeesViewPage from './pages/billing/FeesViewPage';
 import PaymentPage from './pages/billing/PaymentPage';
@@ -51,6 +52,7 @@ function App() {
             <Route path="/room-extension" element={<RoomExtensionPageWrapper />} />
             <Route path="/room-transfer" element={<RoomTransferPageWrapper />} />
             <Route path="/room-cancellation" element={<RoomCancellationPageWrapper />} />
+            <Route path="/renewal" element={<RenewalManagementPageWrapper />} />
             <Route path="/bills" element={<BillsViewPageWrapper />} />
             <Route path="/fees" element={<FeesViewPageWrapper />} />
             <Route path="/payment" element={<PaymentPageWrapper />} />
@@ -260,6 +262,24 @@ const RoomCancellationPageWrapper = () => {
   return (
     <RoomCancellationPage
       onSuccess={handleSuccess}
+      onCancel={handleCancel}
+    />
+  );
+};
+
+// Renewal Management Page Wrapper
+const RenewalManagementPageWrapper = () => {
+  const { user } = useAuth();
+  const handleCancel = () => {
+    if (user?.role === 'admin') {
+      window.location.href = '/admin';
+    } else {
+      window.location.href = '/student';
+    }
+  };
+
+  return (
+    <RenewalManagementPage
       onCancel={handleCancel}
     />
   );

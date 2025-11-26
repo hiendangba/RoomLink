@@ -109,7 +109,9 @@ const RejectionModal = ({ isOpen, onClose, onConfirm, title = "Nhập lý do t�
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {item.studentName || item.name || `Đơn ${item.id.substring(0, 8)}...`}
                       </label>
-                      <p className="text-xs text-gray-500">MSSV: {item.mssv || 'N/A'} | Phòng: {item.roomNumber || 'N/A'}</p>
+                      <p className="text-xs text-gray-500">
+                        MSSV: {item.mssv || 'N/A'} | Phòng: {item.roomNumber || item.currentRoom?.roomNumber || 'N/A'}
+                      </p>
                     </div>
                     <div className="flex items-center space-x-2">
                       {onViewDetail && (

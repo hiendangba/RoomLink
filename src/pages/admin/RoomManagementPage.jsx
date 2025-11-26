@@ -23,10 +23,13 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterBuildingId, setFilterBuildingId] = useState('All');
   const [filterFloorId, setFilterFloorId] = useState('All');
+  const [filterFloorNumber, setFilterFloorNumber] = useState('All');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [buildings, setBuildings] = useState([]);
   const [floors, setFloors] = useState([]);
   const [roomTypes, setRoomTypes] = useState([]);
@@ -95,8 +98,15 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
         page,
         limit: itemsPerPage,
         status: filterStatus,
-        floorId: filterFloorId,
+        buildingId: filterBuildingId,
       };
+      // When "All buildings" is selected, use floorNumber
+      if (filterBuildingId === 'All') {
+        params.floorNumber = filterFloorNumber;
+      } else {
+        // When specific building is selected, use floorId
+        params.floorId = filterFloorId;
+      }
       const response = await roomApi.getRoomForAdmin(params);
       if (response.success && response.data) {
         // Map backend data to frontend format
@@ -141,16 +151,19 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
 
   useEffect(() => {
     fetchRooms(currentPage);
-  }, [currentPage, filterStatus, filterBuildingId, filterFloorId]);
+  }, [currentPage, filterStatus, filterBuildingId, filterFloorId, filterFloorNumber]);
 
   // Reset to page 1 when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterStatus, filterBuildingId, filterFloorId]);
+  }, [filterStatus, filterBuildingId, filterFloorId, filterFloorNumber]);
 
   // Reset floor filter when building changes
   useEffect(() => {
-    if (filterBuildingId !== 'All') {
+    if (filterBuildingId && filterBuildingId !== 'All') {
+      setFilterFloorId('All');
+      setFilterFloorNumber('All');
+    } else if (filterBuildingId === 'All') {
       setFilterFloorId('All');
     }
   }, [filterBuildingId]);
@@ -162,7 +175,13 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
   const handleFilterChange = (type, value) => {
     if (type === 'status') setFilterStatus(value);
     else if (type === 'building') setFilterBuildingId(value);
-    else if (type === 'floor') setFilterFloorId(value);
+    else if (type === 'floor') {
+      if (filterBuildingId === 'All') {
+        setFilterFloorNumber(value);
+      } else {
+        setFilterFloorId(value);
+      }
+    }
   };
 
   const handleAddRoom = () => {
@@ -225,15 +244,86 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
     }
   };
 
-  const handleDeleteConfirm = () => {
-    if (selectedRoom && selectedRoom.currentResidents > 0) {
+  const handleEditRoom = (room) => {
+    setSelectedRoom(room);
+    // Find building ID from room data
+    const building = buildings.find(b => {
+      // Try to find building that contains this room's floor
+      return allFloors.some(f => f.id === room.floorId && f.buildingId === b.id);
+    });
+    
+    setFormData({
+      roomNumber: room.roomNumber,
+      buildingId: building?.id || '',
+      floorId: room.floorId,
+      roomTypeId: room.roomTypeId,
+      capacity: room.capacity.toString(),
+      monthlyFee: room.monthlyFee.toString()
+    });
+    setIsEditMode(true);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateRoom = async (e) => {
+    e.preventDefault();
+    if (!selectedRoom || !formData.roomNumber.trim() || !formData.roomTypeId || !formData.capacity || !formData.monthlyFee) {
+      showError('Vui lòng điền đầy đủ thông tin bắt buộc');
+      return;
+    }
+
+    try {
+      setFormLoading(true);
+      const payload = {
+        roomNumber: formData.roomNumber.trim(),
+        roomTypeId: formData.roomTypeId,
+        capacity: parseInt(formData.capacity),
+        price: parseFloat(formData.monthlyFee),
+      };
+
+      const res = await roomApi.updateRoom(selectedRoom.id, payload);
+      if (res.success) {
+        showSuccess('Cập nhật phòng thành công!');
+        setShowEditModal(false);
+        setIsEditMode(false);
+        setFormData({ 
+          roomNumber: '', 
+          buildingId: '', 
+          floorId: '', 
+          roomTypeId: '', 
+          capacity: '', 
+          monthlyFee: '' 
+        });
+        fetchRooms(currentPage);
+      }
+    } catch (err) {
+      showError(err?.response?.data?.message || "Lỗi khi cập nhật phòng");
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedRoom) return;
+    
+    if (selectedRoom.currentResidents > 0) {
       showError('Không thể xóa phòng đang có sinh viên cư trú');
       setShowDeleteModal(false);
       return;
     }
-    // TODO: Implement delete API when available
-    showError('Chức năng xóa phòng chưa được hỗ trợ');
-    setShowDeleteModal(false);
+
+    try {
+      setFormLoading(true);
+      const res = await roomApi.deleteRoom(selectedRoom.id);
+      if (res.success) {
+        showSuccess('Xóa phòng thành công!');
+        setShowDeleteModal(false);
+        fetchRooms(currentPage);
+      }
+    } catch (err) {
+      showError(err?.response?.data?.message || "Lỗi khi xóa phòng");
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -381,19 +471,31 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
           </div>
           <div className="w-32">
             <Select
-              name="filterFloorId"
-              value={filterFloorId}
+              name={filterBuildingId === 'All' ? "filterFloorNumber" : "filterFloorId"}
+              value={filterBuildingId === 'All' ? filterFloorNumber : filterFloorId}
               onChange={(e) => handleFilterChange('floor', e.target.value)}
-              disabled={filterBuildingId === 'All'}
+              disabled={!filterBuildingId}
             >
               <option value="All">Tất cả tầng</option>
-              {allFloors
-                .filter(floor => filterBuildingId === 'All' || floor.buildingId === filterBuildingId)
-                .map(floor => (
-                  <option key={floor.id} value={floor.id}>
-                    Tầng {floor.number}
-                  </option>
-                ))}
+              {filterBuildingId === 'All' ? (
+                // When "All buildings" is selected, show unique floor numbers
+                [...new Set(allFloors.map(floor => floor.number))]
+                  .sort((a, b) => a - b)
+                  .map(floorNumber => (
+                    <option key={floorNumber} value={floorNumber}>
+                      Tầng {floorNumber}
+                    </option>
+                  ))
+              ) : (
+                // When specific building is selected, show floors of that building
+                allFloors
+                  .filter(floor => floor.buildingId === filterBuildingId)
+                  .map(floor => (
+                    <option key={floor.id} value={floor.id}>
+                      Tầng {floor.number}
+                    </option>
+                  ))
+              )}
             </Select>
           </div>
         </div>
@@ -449,10 +551,20 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
                     Chi tiết
                   </Button>
                   <Button
+                    onClick={() => handleEditRoom(room)}
+                    variant="outline"
+                    size="small"
+                    className="px-3 py-1 text-xs bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                    disabled={room.currentResidents > 0}
+                  >
+                    Sửa
+                  </Button>
+                  <Button
                     onClick={() => handleDeleteRoom(room)}
                     variant="outline"
                     size="small"
                     className="px-3 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200"
+                    disabled={room.currentResidents > 0}
                   >
                     Xóa
                   </Button>
@@ -682,6 +794,130 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
         </BaseModal>
       )}
 
+      {/* Edit Room Modal */}
+      {showEditModal && selectedRoom && (
+        <BaseModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setIsEditMode(false);
+            setFormData({ 
+              roomNumber: '', 
+              buildingId: '', 
+              floorId: '', 
+              roomTypeId: '', 
+              capacity: '', 
+              monthlyFee: '' 
+            });
+          }}
+          title="Chỉnh sửa phòng"
+          size="large"
+        >
+          <ModalBody>
+            <form onSubmit={handleUpdateRoom} className="space-y-4" noValidate>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Số phòng"
+                  name="roomNumber"
+                  type="text"
+                  value={formData.roomNumber}
+                  onChange={(e) => setFormData({...formData, roomNumber: e.target.value})}
+                  placeholder="VD: A101"
+                  required
+                />
+                <Select
+                  label="Tòa nhà"
+                  name="buildingId"
+                  value={formData.buildingId}
+                  onChange={(e) => {
+                    setFormData({...formData, buildingId: e.target.value, floorId: '', roomTypeId: ''});
+                  }}
+                  disabled={true}
+                >
+                  <option value="">Chọn tòa nhà</option>
+                  {buildings.map(building => (
+                    <option key={building.id} value={building.id}>{building.name}</option>
+                  ))}
+                </Select>
+                <Select
+                  label="Tầng"
+                  name="floorId"
+                  value={formData.floorId}
+                  onChange={(e) => setFormData({...formData, floorId: e.target.value})}
+                  disabled={true}
+                >
+                  <option value="">Chọn tầng</option>
+                  {floors.map(floor => (
+                    <option key={floor.id} value={floor.id}>Tầng {floor.number}</option>
+                  ))}
+                </Select>
+                <Select
+                  label="Loại phòng"
+                  name="roomTypeId"
+                  value={formData.roomTypeId}
+                  onChange={(e) => setFormData({...formData, roomTypeId: e.target.value})}
+                  disabled={!formData.buildingId}
+                  required
+                >
+                  <option value="">Chọn loại phòng</option>
+                  {roomTypes.map(type => (
+                    <option key={type.id} value={type.id}>{type.type}</option>
+                  ))}
+                </Select>
+                <Input
+                  label="Sức chứa"
+                  name="capacity"
+                  type="number"
+                  value={formData.capacity}
+                  onChange={(e) => setFormData({...formData, capacity: e.target.value})}
+                  min="1"
+                  max="10"
+                  required
+                />
+                <Input
+                  label="Phí thuê/tháng"
+                  name="monthlyFee"
+                  type="number"
+                  value={formData.monthlyFee}
+                  onChange={(e) => setFormData({...formData, monthlyFee: e.target.value})}
+                  min="0"
+                  step="10000"
+                  required
+                />
+              </div>
+              <div className="flex items-center justify-end space-x-4 pt-6 border-t">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setIsEditMode(false);
+                    setFormData({ 
+                      roomNumber: '', 
+                      buildingId: '', 
+                      floorId: '', 
+                      roomTypeId: '', 
+                      capacity: '', 
+                      monthlyFee: '' 
+                    });
+                  }}
+                  variant="outline"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={formLoading}
+                  disabled={formLoading}
+                >
+                  Cập nhật
+                </Button>
+              </div>
+            </form>
+          </ModalBody>
+        </BaseModal>
+      )}
+
       {/* Delete Modal */}
       {showDeleteModal && selectedRoom && (
         <BaseModal
@@ -712,8 +948,10 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
               </Button>
               <Button
                 onClick={handleDeleteConfirm}
-                disabled={selectedRoom.currentResidents > 0}
+                disabled={selectedRoom.currentResidents > 0 || formLoading}
                 variant="danger"
+                loading={formLoading}
+                loadingText="Đang xóa..."
               >
                 Xóa phòng
               </Button>

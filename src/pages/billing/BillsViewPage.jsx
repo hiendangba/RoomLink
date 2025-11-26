@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
+import { paymentApi, roomApi } from '../../api';
 import Button from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
 
@@ -12,219 +14,123 @@ const BillsView = ({ onSuccess, onCancel }) => {
   const [filter, setFilter] = useState('all'); // all, paid, unpaid
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
+  const { showError } = useNotification();
 
-  // Mock bills data
-  const mockBills = [
-    {
-      id: 'BILL001',
-      contractId: 'CT2024001',
-      studentId: user?.username || 'student001',
-      studentName: user?.name || 'Nguyễn Văn A',
-      roomNumber: 'A101',
-      billType: 'electricity',
-      billTypeName: 'Hóa đơn điện',
-      period: 'Tháng 1/2024',
-      issueDate: '2024-02-01',
-      dueDate: '2024-02-15',
-      amount: 450000,
-      status: 'paid',
-      paidDate: '2024-02-10',
-      paymentMethod: 'Chuyển khoản',
-      details: {
-        previousReading: 1250,
-        currentReading: 1400,
-        consumption: 150,
-        unitPrice: 3000,
-        totalAmount: 450000
-      },
-      description: 'Tiêu thụ điện tháng 1/2024'
-    },
-    {
-      id: 'BILL002',
-      contractId: 'CT2024001',
-      studentId: user?.username || 'student001',
-      studentName: user?.name || 'Nguyễn Văn A',
-      roomNumber: 'A101',
-      billType: 'water',
-      billTypeName: 'Hóa đơn nước',
-      period: 'Tháng 1/2024',
-      issueDate: '2024-02-01',
-      dueDate: '2024-02-15',
-      amount: 180000,
-      status: 'paid',
-      paidDate: '2024-02-12',
-      paymentMethod: 'Tiền mặt',
-      details: {
-        previousReading: 850,
-        currentReading: 910,
-        consumption: 60,
-        unitPrice: 3000,
-        totalAmount: 180000
-      },
-      description: 'Tiêu thụ nước tháng 1/2024'
-    },
-    {
-      id: 'BILL003',
-      contractId: 'CT2024001',
-      studentId: user?.username || 'student001',
-      studentName: user?.name || 'Nguyễn Văn A',
-      roomNumber: 'A101',
-      billType: 'electricity',
-      billTypeName: 'Hóa đơn điện',
-      period: 'Tháng 2/2024',
-      issueDate: '2024-03-01',
-      dueDate: '2024-03-15',
-      amount: 520000,
-      status: 'unpaid',
-      paidDate: null,
-      paymentMethod: null,
-      details: {
-        previousReading: 1400,
-        currentReading: 1573,
-        consumption: 173,
-        unitPrice: 3000,
-        totalAmount: 520000
-      },
-      description: 'Tiêu thụ điện tháng 2/2024'
-    },
-    {
-      id: 'BILL004',
-      contractId: 'CT2024001',
-      studentId: user?.username || 'student001',
-      studentName: user?.name || 'Nguyễn Văn A',
-      roomNumber: 'A101',
-      billType: 'water',
-      billTypeName: 'Hóa đơn nước',
-      period: 'Tháng 2/2024',
-      issueDate: '2024-03-01',
-      dueDate: '2024-03-15',
-      amount: 210000,
-      status: 'unpaid',
-      paidDate: null,
-      paymentMethod: null,
-      details: {
-        previousReading: 910,
-        currentReading: 980,
-        consumption: 70,
-        unitPrice: 3000,
-        totalAmount: 210000
-      },
-      description: 'Tiêu thụ nước tháng 2/2024'
-    },
-    {
-      id: 'BILL005',
-      contractId: 'CT2024001',
-      studentId: user?.username || 'student001',
-      studentName: user?.name || 'Nguyễn Văn A',
-      roomNumber: 'A101',
-      billType: 'electricity',
-      billTypeName: 'Hóa đơn điện',
-      period: 'Tháng 3/2024',
-      issueDate: '2024-04-01',
-      dueDate: '2024-04-15',
-      amount: 480000,
-      status: 'paid',
-      paidDate: '2024-04-05',
-      paymentMethod: 'Chuyển khoản',
-      details: {
-        previousReading: 1573,
-        currentReading: 1733,
-        consumption: 160,
-        unitPrice: 3000,
-        totalAmount: 480000
-      },
-      description: 'Tiêu thụ điện tháng 3/2024'
-    },
-    {
-      id: 'BILL006',
-      contractId: 'CT2024001',
-      studentId: user?.username || 'student001',
-      studentName: user?.name || 'Nguyễn Văn A',
-      roomNumber: 'A101',
-      billType: 'water',
-      billTypeName: 'Hóa đơn nước',
-      period: 'Tháng 3/2024',
-      issueDate: '2024-04-01',
-      dueDate: '2024-04-15',
-      amount: 195000,
-      status: 'paid',
-      paidDate: '2024-04-08',
-      paymentMethod: 'Chuyển khoản',
-      details: {
-        previousReading: 980,
-        currentReading: 1045,
-        consumption: 65,
-        unitPrice: 3000,
-        totalAmount: 195000
-      },
-      description: 'Tiêu thụ nước tháng 3/2024'
-    },
-    {
-      id: 'BILL007',
-      contractId: 'CT2024001',
-      studentId: user?.username || 'student001',
-      studentName: user?.name || 'Nguyễn Văn A',
-      roomNumber: 'A101',
-      billType: 'electricity',
-      billTypeName: 'Hóa đơn điện',
-      period: 'Tháng 4/2024',
-      issueDate: '2024-05-01',
-      dueDate: '2024-05-15',
-      amount: 550000,
-      status: 'unpaid',
-      paidDate: null,
-      paymentMethod: null,
-      details: {
-        previousReading: 1733,
-        currentReading: 1916,
-        consumption: 183,
-        unitPrice: 3000,
-        totalAmount: 550000
-      },
-      description: 'Tiêu thụ điện tháng 4/2024'
-    },
-    {
-      id: 'BILL008',
-      contractId: 'CT2024001',
-      studentId: user?.username || 'student001',
-      studentName: user?.name || 'Nguyễn Văn A',
-      roomNumber: 'A101',
-      billType: 'water',
-      billTypeName: 'Hóa đơn nước',
-      period: 'Tháng 4/2024',
-      issueDate: '2024-05-01',
-      dueDate: '2024-05-15',
-      amount: 225000,
-      status: 'unpaid',
-      paidDate: null,
-      paymentMethod: null,
-      details: {
-        previousReading: 1045,
-        currentReading: 1120,
-        consumption: 75,
-        unitPrice: 3000,
-        totalAmount: 225000
-      },
-      description: 'Tiêu thụ nước tháng 4/2024'
+  // Transform payment data to bill format
+  const transformPaymentToBill = (payment, roomNumber) => {
+    // Parse content: "Thanh toán tiền điện/nước - YYYY-MM"
+    const contentMatch = payment.content?.match(/Thanh toán tiền (điện|nước) - (\d{4}-\d{2})/);
+    const typeString = contentMatch ? contentMatch[1] : (payment.type === 'ELECTRICITY' ? 'điện' : 'nước');
+    const periodStr = contentMatch ? contentMatch[2] : '';
+    
+    // Parse period YYYY-MM to "Tháng MM/YYYY"
+    let period = '';
+    if (periodStr) {
+      const [year, month] = periodStr.split('-');
+      period = `Tháng ${month}/${year}`;
+    } else {
+      // Fallback: use createdAt date
+      const date = new Date(payment.createdAt || Date.now());
+      period = `Tháng ${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
     }
-  ];
+
+    const billType = payment.type === 'ELECTRICITY' ? 'electricity' : 'water';
+    const billTypeName = payment.type === 'ELECTRICITY' ? 'Hóa đơn điện' : 'Hóa đơn nước';
+    const status = payment.status === 'SUCCESS' ? 'paid' : 'unpaid';
+    
+    // Calculate issueDate (first day of next month after period)
+    let issueDate = new Date();
+    if (periodStr) {
+      const [year, month] = periodStr.split('-');
+      issueDate = new Date(parseInt(year), parseInt(month), 1); // First day of the month
+    }
+    
+    // Calculate dueDate (15 days after issueDate)
+    const dueDate = new Date(issueDate);
+    dueDate.setDate(dueDate.getDate() + 15);
+
+    return {
+      id: payment.id,
+      studentId: payment.studentId,
+      studentName: user?.name || '',
+      roomNumber: roomNumber || 'N/A',
+      billType,
+      billTypeName,
+      period,
+      issueDate: issueDate.toISOString().split('T')[0],
+      dueDate: dueDate.toISOString().split('T')[0],
+      amount: parseFloat(payment.amount) || 0,
+      status,
+      paidDate: payment.paidAt ? new Date(payment.paidAt).toISOString().split('T')[0] : null,
+      paymentMethod: payment.status === 'SUCCESS' ? 'Chuyển khoản' : null,
+      details: {
+        // These details are not available from Payment model, set defaults
+        previousReading: 0,
+        currentReading: 0,
+        consumption: 0,
+        unitPrice: 0,
+        totalAmount: parseFloat(payment.amount) || 0
+      },
+      description: payment.content || `Tiêu thụ ${typeString} ${period}`
+    };
+  };
 
   useEffect(() => {
-    // Load bills data
-    const savedBills = localStorage.getItem('studentBills');
-    if (savedBills) {
+    const loadBills = async () => {
       try {
-        const parsedBills = JSON.parse(savedBills);
-        setBills(parsedBills);
+        setIsLoading(true);
+        
+        // Load room data to get roomNumber
+        let roomNumber = 'N/A';
+        try {
+          const roomResponse = await roomApi.getRoomByUser();
+          if (roomResponse.success && roomResponse.data) {
+            roomNumber = roomResponse.data.roomNumber || 'N/A';
+          }
+        } catch (roomError) {
+          console.error('Error loading room data:', roomError);
+          // Continue without room number
+        }
+
+        // Load payments - get all payments for user
+        // Payment types: "ROOM", "REFUND", "ELECTRICITY", "WATER", "HEALTHCHECK"
+        // This page only displays electricity and water bills
+        const paymentResponse = await paymentApi.getPaymentByUserId({
+          userId: user?.id,
+          page: 1,
+          limit: 1000 // Get all payments
+        });
+
+        // Filter only electricity and water bills (exclude ROOM, REFUND, HEALTHCHECK)
+        const allPayments = (paymentResponse.data || []).filter(
+          payment => payment.type === 'ELECTRICITY' || payment.type === 'WATER'
+        );
+
+        // Transform payments to bills
+        const transformedBills = allPayments.map(payment => 
+          transformPaymentToBill(payment, roomNumber)
+        );
+
+        // Sort by issueDate descending (newest first)
+        transformedBills.sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
+
+        setBills(transformedBills);
       } catch (error) {
-        console.error('Error parsing bills data:', error);
-        setBills(mockBills);
+        console.error('Error loading bills:', error);
+        const errorMessage = error.response?.data?.message || error.message || 'Không thể tải danh sách hóa đơn.';
+        showError(errorMessage);
+        setBills([]);
+      } finally {
+        setIsLoading(false);
       }
+    };
+
+    if (user?.id) {
+      loadBills();
     } else {
-      setBills(mockBills);
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  }, [user]);
+  }, [user, showError]);
 
   useEffect(() => {
     // Filter bills based on selected filter

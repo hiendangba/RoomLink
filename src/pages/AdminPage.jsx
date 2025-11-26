@@ -94,6 +94,10 @@ const AdminPage = () => {
               Quản lý phòng
             </h2>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
+              <div className="bg-green-50 p-6 rounded-lg cursor-pointer hover:bg-green-100 transition-colors" onClick={() => window.location.href = '/renewal'}>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Quản lý đợt yêu cầu</h3>
+                <p className="text-green-600 text-sm">Tạo, dừng và xem lịch sử các đợt yêu cầu về phòng ở (gia hạn, chuyển phòng, hủy phòng)</p>
+              </div>
               <div className="bg-green-50 p-6 rounded-lg cursor-pointer hover:bg-green-100 transition-colors" onClick={handleBuildingManagement}>
                 <h3 className="text-lg font-semibold text-green-800 mb-2">Quản lý tòa nhà</h3>
                 <p className="text-green-600 text-sm">Thêm, xóa và quản lý các tòa nhà trong ký túc xá</p>

@@ -5,4 +5,6 @@ export { default as buildingApi } from './buildingApi';
 export { default as healthCheckApi } from './healthCheckApi';
 export { default as roomRegistrationApi } from './roomRegistrationApi';
 export { default as numberPlateApi } from './numberPlateApi';
+export { default as paymentApi } from './paymentApi';
+export { default as renewalApi } from './renewalApi';
 

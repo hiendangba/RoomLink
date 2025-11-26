@@ -13,6 +13,16 @@ const roomApi = {
         return axiosClient.post("/rooms/room-type", data);
     },
 
+    // PUT - Cập nhật loại phòng
+    updateRoomType: (id, data) => {
+        return axiosClient.put(`/rooms/room-type/${id}`, data);
+    },
+
+    // DELETE - Xóa loại phòng
+    deleteRoomType: (id) => {
+        return axiosClient.delete(`/rooms/room-type/${id}`);
+    },
+
     getRoom(data) {
         return axiosClient.get("/rooms/", { params: data });
     },
@@ -27,6 +37,16 @@ const roomApi = {
 
     getRoomByUser() {
         return axiosClient.get("/rooms/active");
+    },
+
+    // PUT - Cập nhật thông tin phòng
+    updateRoom: (id, data) => {
+        return axiosClient.put(`/rooms/${id}`, data);
+    },
+
+    // DELETE - Xóa phòng
+    deleteRoom: (id) => {
+        return axiosClient.delete(`/rooms/${id}`);
     }
 };
 
