@@ -1,7 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Button from '../components/ui/Button';
+import { renewalApi } from '../api';
 
 const StudentPage = () => {
+  const [hasActiveRenewal, setHasActiveRenewal] = useState(false);
+  const [loadingRenewal, setLoadingRenewal] = useState(true);
+
+  useEffect(() => {
+    const checkActiveRenewal = async () => {
+      try {
+        setLoadingRenewal(true);
+        const response = await renewalApi.getActive();
+        if (response.success !== false && response.data) {
+          setHasActiveRenewal(true);
+        } else {
+          setHasActiveRenewal(false);
+        }
+      } catch (error) {
+        setHasActiveRenewal(false);
+      } finally {
+        setLoadingRenewal(false);
+      }
+    };
+
+    checkActiveRenewal();
+  }, []);
   const handleRoomRegistration = () => {
     window.location.href = '/register-room';
   };
@@ -64,18 +87,18 @@ const StudentPage = () => {
                 <h3 className="text-lg font-semibold text-blue-800 mb-2">Xem thông tin phòng</h3>
                 <p className="text-blue-600 text-sm">Xem chi tiết thông tin phòng và hợp đồng của bạn</p>
               </div>
-              <div className="bg-orange-50 p-6 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors" onClick={handleRoomExtension}>
-                <h3 className="text-lg font-semibold text-orange-800 mb-2">Gia hạn thời gian ở</h3>
-                <p className="text-orange-600 text-sm">Gia hạn thời gian ở KTX</p>
-              </div>
-              <div className="bg-cyan-50 p-6 rounded-lg cursor-pointer hover:bg-cyan-100 transition-colors" onClick={() => window.location.href = '/renewal'}>
-                <h3 className="text-lg font-semibold text-cyan-800 mb-2">Đợt yêu cầu</h3>
-                <p className="text-cyan-600 text-sm">Xem trạng thái đợt yêu cầu về phòng ở (gia hạn, chuyển phòng, hủy phòng)</p>
-              </div>
-              <div className="bg-teal-50 p-6 rounded-lg cursor-pointer hover:bg-teal-100 transition-colors" onClick={handleRoomTransfer}>
-                <h3 className="text-lg font-semibold text-teal-800 mb-2">Chuyển phòng</h3>
-                <p className="text-teal-600 text-sm">Chuyển từ phòng hiện tại sang phòng khác</p>
-              </div>
+              {hasActiveRenewal && (
+                <>
+                  <div className="bg-orange-50 p-6 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors" onClick={handleRoomExtension}>
+                    <h3 className="text-lg font-semibold text-orange-800 mb-2">Gia hạn thời gian ở</h3>
+                    <p className="text-orange-600 text-sm">Gia hạn thời gian ở KTX</p>
+                  </div>
+                  <div className="bg-teal-50 p-6 rounded-lg cursor-pointer hover:bg-teal-100 transition-colors" onClick={handleRoomTransfer}>
+                    <h3 className="text-lg font-semibold text-teal-800 mb-2">Chuyển phòng</h3>
+                    <p className="text-teal-600 text-sm">Chuyển từ phòng hiện tại sang phòng khác</p>
+                  </div>
+                </>
+              )}
               <div className="bg-red-50 p-6 rounded-lg cursor-pointer hover:bg-red-100 transition-colors" onClick={handleRoomCancellation}>
                 <h3 className="text-lg font-semibold text-red-800 mb-2">Hủy phòng</h3>
                 <p className="text-red-600 text-sm">Gửi đơn yêu cầu hủy phòng và trả phòng</p>

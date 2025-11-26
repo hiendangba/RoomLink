@@ -7,12 +7,14 @@ import LoadingState from '../../components/ui/LoadingState';
 import InfoBox from '../../components/ui/InfoBox';
 import StatusBadge from '../../components/ui/StatusBadge';
 import roomApi from '../../api/roomApi';
+import { renewalApi } from '../../api';
 
 const RoomInfoPage = ({ onCancel }) => {
   const { user } = useAuth();
   const { showError } = useNotification();
   const [roomData, setRoomData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [hasActiveRenewal, setHasActiveRenewal] = useState(false);
 
   useEffect(() => {
     const fetchRoomData = async () => {
@@ -58,7 +60,21 @@ const RoomInfoPage = ({ onCancel }) => {
       }
     };
 
+    const checkActiveRenewal = async () => {
+      try {
+        const response = await renewalApi.getActive();
+        if (response.success !== false && response.data) {
+          setHasActiveRenewal(true);
+        } else {
+          setHasActiveRenewal(false);
+        }
+      } catch (error) {
+        setHasActiveRenewal(false);
+      }
+    };
+
     fetchRoomData();
+    checkActiveRenewal();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Chỉ gọi một lần khi component mount
 
@@ -94,20 +110,24 @@ const RoomInfoPage = ({ onCancel }) => {
       onClose={onCancel}
       headerActions={
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="primary"
-            size="small"
-            onClick={() => window.location.href = '/room-extension'}
-          >
-            Gia hạn phòng
-          </Button>
-          <Button
-            variant="outline"
-            size="small"
-            onClick={() => window.location.href = '/room-transfer'}
-          >
-            Chuyển phòng
-          </Button>
+          {hasActiveRenewal && (
+            <>
+              <Button
+                variant="primary"
+                size="small"
+                onClick={() => window.location.href = '/room-extension'}
+              >
+                Gia hạn phòng
+              </Button>
+              <Button
+                variant="outline"
+                size="small"
+                onClick={() => window.location.href = '/room-transfer'}
+              >
+                Chuyển phòng
+              </Button>
+            </>
+          )}
           <Button
             variant="outline"
             size="small"

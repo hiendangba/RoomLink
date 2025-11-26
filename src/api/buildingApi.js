@@ -13,6 +13,10 @@ const buildingApi = {
         return axiosClient.post("/buildings/", data);
     },
 
+    updateBuilding(data) {
+        return axiosClient.patch("/buildings/", data);
+    },
+
     deleteBuilding(id) {
         return axiosClient.delete(`/buildings/${id}`);
     }

@@ -12,7 +12,7 @@ import buildingApi from '../../api/buildingApi';
 import roomApi from '../../api/roomApi';
 
 // BuildingCard component
-const BuildingCard = ({ building, onViewDetail }) => {
+const BuildingCard = ({ building, onViewDetail, onEditBuilding, onDeleteBuilding }) => {
   const getGenderDisplay = (gender) => {
     switch (gender) {
       case 'male':
@@ -44,23 +44,6 @@ const BuildingCard = ({ building, onViewDetail }) => {
           <span className="text-sm text-gray-600">Số tầng:</span>
           <span className="text-sm font-medium">{building.numberFloor || 'N/A'}</span>
         </div>
-        {building.roomTypes && building.roomTypes.length > 0 && (
-          <div>
-            <span className="text-sm text-gray-600">Loại phòng:</span>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {building.roomTypes.slice(0, 2).map((roomType, index) => (
-                <span key={index} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                  {roomType.type || roomType}
-                </span>
-              ))}
-              {building.roomTypes.length > 2 && (
-                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                  +{building.roomTypes.length - 2}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Hàng nút hành động */}
@@ -73,6 +56,22 @@ const BuildingCard = ({ building, onViewDetail }) => {
             className="px-3 py-1 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200"
           >
             Chi tiết
+          </Button>
+          <Button
+            onClick={() => onEditBuilding && onEditBuilding(building)}
+            variant="outline"
+            size="small"
+            className="px-3 py-1 text-xs bg-green-100 text-green-700 hover:bg-green-200"
+          >
+            Sửa
+          </Button>
+          <Button
+            onClick={() => onDeleteBuilding && onDeleteBuilding(building)}
+            variant="outline"
+            size="small"
+            className="px-3 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200"
+          >
+            Xóa
           </Button>
         </div>
       </div>
@@ -88,9 +87,11 @@ const BuildingManagementPage = ({ onSuccess, onCancel }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(8);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedBuilding, setSelectedBuilding] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [roomTypes, setRoomTypes] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
@@ -157,6 +158,25 @@ const BuildingManagementPage = ({ onSuccess, onCancel }) => {
     setShowDetailModal(true);
   };
 
+  const handleEditBuilding = (building) => {
+    setSelectedBuilding(building);
+    // Đảm bảo lấy đúng id từ roomTypes
+    const roomTypeIds = building.roomTypes?.map(rt => {
+      // Nếu rt là object có id, lấy id; nếu là string thì lấy luôn
+      return typeof rt === 'object' ? (rt.id || rt) : rt;
+    }).filter(id => id) || [];
+    
+    setFormData({
+      name: building.name || '',
+      genderRestriction: building.genderRestriction || 'male',
+      numberFloor: building.numberFloor?.toString() || '',
+      roomTypeIds: roomTypeIds
+    });
+    setFormError('');
+    setIsEditMode(true);
+    setShowEditModal(true);
+  };
+
   const handleDelete = (building) => {
     setSelectedBuilding(building);
     setShowDeleteModal(true);
@@ -190,13 +210,25 @@ const BuildingManagementPage = ({ onSuccess, onCancel }) => {
         roomTypeIds: formData.roomTypeIds
       };
 
-      const response = await buildingApi.createBuilding(requestData);
-      if (response.success) {
-        showSuccess('Thêm tòa nhà mới thành công.');
-        await fetchBuildings();
-        setTimeout(() => {
-          setShowAddModal(false);
-        }, 1500);
+      if (isEditMode && selectedBuilding) {
+        requestData.id = selectedBuilding.id;
+        const response = await buildingApi.updateBuilding(requestData);
+        if (response.success) {
+          showSuccess('Cập nhật tòa nhà thành công.');
+          await fetchBuildings();
+          setShowEditModal(false);
+          setIsEditMode(false);
+          setSelectedBuilding(null);
+        }
+      } else {
+        const response = await buildingApi.createBuilding(requestData);
+        if (response.success) {
+          showSuccess('Thêm tòa nhà mới thành công.');
+          await fetchBuildings();
+          setTimeout(() => {
+            setShowAddModal(false);
+          }, 1500);
+        }
       }
     } catch (error) {
       console.error('Error saving building:', error);
@@ -320,6 +352,8 @@ const BuildingManagementPage = ({ onSuccess, onCancel }) => {
               key={building.id}
               building={building}
               onViewDetail={handleViewDetail}
+              onEditBuilding={handleEditBuilding}
+              onDeleteBuilding={handleDelete}
             />
           ))}
         </div>
@@ -345,6 +379,12 @@ const BuildingManagementPage = ({ onSuccess, onCancel }) => {
           onClose={() => {
             setShowAddModal(false);
             setFormError('');
+            setFormData({
+              name: '',
+              genderRestriction: 'male',
+              numberFloor: '',
+              roomTypeIds: []
+            });
           }}
           title="Thêm tòa nhà mới"
           size="large"
@@ -478,13 +518,38 @@ const BuildingManagementPage = ({ onSuccess, onCancel }) => {
               {selectedBuilding.roomTypes && selectedBuilding.roomTypes.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800 mb-3">Loại phòng</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectedBuilding.roomTypes.map((roomType, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-sm text-gray-900">{roomType.type || roomType || 'N/A'}</span>
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedBuilding.roomTypes.map((roomType, index) => {
+                      const roomTypeId = typeof roomType === 'object' ? (roomType.id || roomType) : roomType;
+                      const roomTypeName = typeof roomType === 'object' ? (roomType.type || 'N/A') : (roomType || 'N/A');
+                      const amenities = typeof roomType === 'object' ? (roomType.amenities || []) : [];
+                      
+                      return (
+                        <div key={roomTypeId || index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-900 mb-1">{roomTypeName}</p>
+                              {amenities && Array.isArray(amenities) && amenities.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs text-gray-600 mb-1">Tiện ích:</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {amenities.map((amenity, amenityIndex) => (
+                                      <span
+                                        key={amenityIndex}
+                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                                      >
+                                        {amenity}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -493,6 +558,124 @@ const BuildingManagementPage = ({ onSuccess, onCancel }) => {
             <div className="flex justify-end pt-4 border-t border-gray-200">
               <Button onClick={() => setShowDetailModal(false)} variant="outline">
                 Đóng
+              </Button>
+            </div>
+          </ModalBody>
+        </BaseModal>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && selectedBuilding && (
+        <BaseModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setIsEditMode(false);
+            setFormError('');
+            setSelectedBuilding(null);
+            setFormData({
+              name: '',
+              genderRestriction: 'male',
+              numberFloor: '',
+              roomTypeIds: []
+            });
+          }}
+          title="Chỉnh sửa tòa nhà"
+          size="large"
+          closeOnOverlayClick={true}
+          className="max-h-[90vh] overflow-y-auto"
+          zIndex={60}
+        >
+          <ModalBody className="max-h-[calc(90vh-200px)] overflow-y-auto">
+            <div className="space-y-4">
+              <Input
+                label="Tên tòa nhà"
+                name="name"
+                type="text"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Ví dụ: Tòa A, Tòa B..."
+                required
+                error={formError && !formData.name.trim() ? formError : ''}
+              />
+
+              <Select
+                label="Giới hạn giới tính"
+                name="genderRestriction"
+                value={formData.genderRestriction}
+                onChange={handleInputChange}
+                required
+              >
+                <option value="male">Nam</option>
+                <option value="female">Nữ</option>
+              </Select>
+
+              <Input
+                label="Số tầng"
+                name="numberFloor"
+                type="number"
+                value={formData.numberFloor}
+                onChange={handleInputChange}
+                placeholder="Ví dụ: 5"
+                required
+                min="1"
+                max="20"
+                error={formError && (!formData.numberFloor || parseInt(formData.numberFloor) < 1 || parseInt(formData.numberFloor) > 20) ? formError : ''}
+              />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Loại phòng <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-2 border border-gray-200 rounded-lg">
+                  {roomTypes.map((roomType) => (
+                    <label
+                      key={roomType.id}
+                      className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.roomTypeIds.includes(roomType.id)}
+                        onChange={() => handleRoomTypeToggle(roomType.id)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">{roomType.type || 'N/A'}</span>
+                    </label>
+                  ))}
+                </div>
+                {formData.roomTypeIds.length > 0 && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    Đã chọn {formData.roomTypeIds.length} loại phòng
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-end space-x-4 mt-6 pt-6 border-t">
+              <Button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setIsEditMode(false);
+                  setFormError('');
+                  setSelectedBuilding(null);
+                  setFormData({
+                    name: '',
+                    genderRestriction: 'male',
+                    numberFloor: '',
+                    roomTypeIds: []
+                  });
+                }}
+                variant="outline"
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={handleSave}
+                variant="primary"
+                disabled={formLoading}
+                loading={formLoading}
+                loadingText="Đang cập nhật..."
+              >
+                Cập nhật
               </Button>
             </div>
           </ModalBody>

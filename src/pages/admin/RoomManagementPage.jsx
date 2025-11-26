@@ -97,15 +97,15 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
       const params = {
         page,
         limit: itemsPerPage,
-        status: filterStatus,
-        buildingId: filterBuildingId,
+        status: filterStatus || 'All',
+        buildingId: filterBuildingId || 'All',
       };
-      // When "All buildings" is selected, use floorNumber
+      // When "All buildings" is selected, use floorNumber instead of floorId
       if (filterBuildingId === 'All') {
-        params.floorNumber = filterFloorNumber;
+        params.floorNumber = filterFloorNumber || 'All';
       } else {
         // When specific building is selected, use floorId
-        params.floorId = filterFloorId;
+        params.floorId = filterFloorId || 'All';
       }
       const response = await roomApi.getRoomForAdmin(params);
       if (response.success && response.data) {
@@ -304,12 +304,6 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
 
   const handleDeleteConfirm = async () => {
     if (!selectedRoom) return;
-    
-    if (selectedRoom.currentResidents > 0) {
-      showError('Không thể xóa phòng đang có sinh viên cư trú');
-      setShowDeleteModal(false);
-      return;
-    }
 
     try {
       setFormLoading(true);
@@ -554,8 +548,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
                     onClick={() => handleEditRoom(room)}
                     variant="outline"
                     size="small"
-                    className="px-3 py-1 text-xs bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                    disabled={room.currentResidents > 0}
+                    className="px-3 py-1 text-xs bg-green-100 text-green-700 hover:bg-green-200"
                   >
                     Sửa
                   </Button>
@@ -564,7 +557,6 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
                     variant="outline"
                     size="small"
                     className="px-3 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200"
-                    disabled={room.currentResidents > 0}
                   >
                     Xóa
                   </Button>
@@ -931,16 +923,6 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
               <p className="text-gray-600 mb-4">
                 Bạn có chắc chắn muốn xóa phòng <strong>{selectedRoom.roomNumber}</strong> không?
               </p>
-              {selectedRoom.currentResidents > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                    <span className="text-red-800 font-medium">Không thể xóa phòng đang có sinh viên cư trú</span>
-                  </div>
-                </div>
-              )}
             </div>
             <div className="flex items-center justify-end space-x-4">
               <Button onClick={() => setShowDeleteModal(false)} variant="outline">
@@ -948,7 +930,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
               </Button>
               <Button
                 onClick={handleDeleteConfirm}
-                disabled={selectedRoom.currentResidents > 0 || formLoading}
+                disabled={formLoading}
                 variant="danger"
                 loading={formLoading}
                 loadingText="Đang xóa..."

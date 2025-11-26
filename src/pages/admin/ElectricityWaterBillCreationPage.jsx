@@ -83,12 +83,12 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
 
     // Parse header
     const headers = lines[0].split(',').map(h => h.trim());
-    const expectedHeaders = ['roomNumber', 'period', 'type', 'oldValue', 'newValue', 'unitPrice', 'totalAmount'];
+    const expectedHeaders = ['roomNumber', 'building', 'floor', 'period', 'type', 'oldValue', 'newValue', 'unitPrice', 'totalAmount'];
     
     // Validate headers
     const isValidFormat = expectedHeaders.every(h => headers.includes(h));
     if (!isValidFormat) {
-      throw new Error('Định dạng CSV không đúng. Cần các cột: roomNumber, period, type, oldValue, newValue, unitPrice, totalAmount');
+      throw new Error('Định dạng CSV không đúng. Cần các cột: roomNumber, building, floor, period, type, oldValue, newValue, unitPrice, totalAmount');
     }
 
     // Parse data rows
@@ -121,7 +121,7 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
   // Convert CSV rows to API format
   const convertCSVToBillItems = (csvRows) => {
     return csvRows.map(row => {
-      const { roomNumber, period, type, oldValue, newValue, unitPrice } = row;
+      const { roomNumber, building, floor, period, type, oldValue, newValue, unitPrice } = row;
       const roomId = roomMapping[roomNumber];
       
       // Validate data
@@ -151,6 +151,8 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
       return {
         roomId: roomId || null,
         roomNumber: roomNumber, // Keep for display
+        building: building ? building.trim().toUpperCase() : null, // Building from CSV
+        floor: floor ? floor.toString().trim() : null, // Floor from CSV
         period: period,
         type: type,
         oldValue: oldValue,
@@ -176,19 +178,16 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
     });
   };
 
-  // Extract building from roomNumber (A102 -> A, B202 -> B)
-  const getBuildingFromRoomNumber = (roomNumber) => {
+  // Extract building from roomNumber (A102 -> A, B202 -> B) - for manual entries
+  const extractBuildingFromRoomNumber = (roomNumber) => {
     if (!roomNumber) return null;
-    // Get the first letter(s) before the number
     const match = roomNumber.match(/^([A-Za-z]+)/);
     return match ? match[1].toUpperCase() : null;
   };
 
-  // Extract floor from roomNumber (A102 -> 1, B202 -> 2, A101 -> 1)
-  const getFloorFromRoomNumber = (roomNumber) => {
+  // Extract floor from roomNumber (A102 -> 1, B202 -> 2) - for manual entries
+  const extractFloorFromRoomNumber = (roomNumber) => {
     if (!roomNumber) return null;
-    // Support formats: A102, B202, P101, etc.
-    // Get the first digit after the building letter
     const match = roomNumber.match(/^[A-Za-z]+(\d+)/);
     if (match) {
       const floor = parseInt(match[1].charAt(0));
@@ -197,30 +196,28 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
     return null;
   };
 
-  // Get unique buildings from processed data
+  // Get unique buildings from processed data (from CSV)
   const getBuildingOptions = () => {
     const buildings = new Set();
     processedData.forEach(item => {
-      const building = getBuildingFromRoomNumber(item.roomNumber);
-      if (building) buildings.add(building);
+      if (item.building) buildings.add(item.building);
     });
     return Array.from(buildings).sort();
   };
 
-  // Get unique floors from processed data
+  // Get unique floors from processed data (from CSV)
   const getFloorOptions = () => {
     const floors = new Set();
     processedData.forEach(item => {
-      const floor = getFloorFromRoomNumber(item.roomNumber);
-      if (floor) floors.add(floor);
+      if (item.floor) floors.add(item.floor);
     });
     return Array.from(floors).sort((a, b) => parseInt(a) - parseInt(b));
   };
 
   const filteredData = processedData.filter(item => {
     const typeMatch = filterType === 'all' || item.type === filterType;
-    const buildingMatch = filterBuilding === 'all' || getBuildingFromRoomNumber(item.roomNumber) === filterBuilding;
-    const floorMatch = filterFloor === 'all' || getFloorFromRoomNumber(item.roomNumber) === filterFloor;
+    const buildingMatch = filterBuilding === 'all' || item.building === filterBuilding;
+    const floorMatch = filterFloor === 'all' || item.floor === filterFloor;
     return typeMatch && buildingMatch && floorMatch;
   }).sort((a, b) => {
     // Sort: invalid items first, then valid items
@@ -520,7 +517,7 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
                   Hỗ trợ định dạng: Excel (.xlsx, .xls), CSV (.csv). Kích thước tối đa: 10MB
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Format CSV: roomNumber,period,type,oldValue,newValue,unitPrice,totalAmount
+                  Format CSV: roomNumber,building,floor,period,type,oldValue,newValue,unitPrice,totalAmount
                 </p>
               </div>
 
@@ -980,9 +977,15 @@ const ElectricityWaterBillCreationPage = ({ onSuccess, onCancel }) => {
                   errorMessage = 'Giá trị không được âm';
                 }
 
+                // Extract building and floor from roomNumber for manual entries
+                const building = extractBuildingFromRoomNumber(editFormData.roomNumber);
+                const floor = extractFloorFromRoomNumber(editFormData.roomNumber);
+
                 const newItem = {
                   roomId: roomId,
                   roomNumber: editFormData.roomNumber,
+                  building: building, // Extracted from roomNumber for manual entries
+                  floor: floor, // Extracted from roomNumber for manual entries
                   period: editFormData.period,
                   type: editFormData.type,
                   oldValue: oldValue,

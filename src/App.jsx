@@ -12,7 +12,7 @@ import RoomExtensionPage from './pages/room/RoomExtensionPage';
 import RoomTransferPage from './pages/room/RoomTransferPage';
 import RoomCancellationPage from './pages/room/RoomCancellationPage';
 import RoomInfoPage from './pages/room/RoomInfoPage';
-import RenewalManagementPage from './pages/room/RenewalManagementPage';
+import RenewalManagementPage from './pages/admin/RenewalManagementPage';
 import BillsViewPage from './pages/billing/BillsViewPage';
 import FeesViewPage from './pages/billing/FeesViewPage';
 import PaymentPage from './pages/billing/PaymentPage';
@@ -269,13 +269,8 @@ const RoomCancellationPageWrapper = () => {
 
 // Renewal Management Page Wrapper
 const RenewalManagementPageWrapper = () => {
-  const { user } = useAuth();
   const handleCancel = () => {
-    if (user?.role === 'admin') {
-      window.location.href = '/admin';
-    } else {
-      window.location.href = '/student';
-    }
+    window.location.href = '/admin';
   };
 
   return (
