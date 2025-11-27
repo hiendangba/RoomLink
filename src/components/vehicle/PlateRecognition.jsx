@@ -116,46 +116,7 @@ const PlateRecognition = ({ onSuccess, onCancel }) => {
 
 
   const callRecognizePlateAPI = async (blob) => {
-    console.log('callRecognizePlateAPI called', {
-      isApiCalling: isApiCallingRef.current,
-      authLoading: authLoading,
-      user: user,
-      roleId: user?.roleId,
-      id: user?.id
-    });
-
     if (isApiCallingRef.current) {
-      console.log('API already calling, skipping');
-      return;
-    }
-
-    if (authLoading) {
-      console.log('Auth still loading, skipping API call');
-      return;
-    }
-
-    if (!user) {
-      console.log('No user, skipping API call');
-      return;
-    }
-
-    // Get roleId from user or decode from token
-    let roleId = user.roleId;
-    if (!roleId) {
-      try {
-        const token = localStorage.getItem('token');
-        if (token) {
-          const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-          roleId = tokenPayload.roleId;
-          console.log('Decoded roleId from token:', roleId);
-        }
-      } catch (e) {
-        console.error('Error decoding token:', e);
-      }
-    }
-
-    if (!roleId && !user.id) {
-      console.log('No roleId or id available, skipping API call');
       return;
     }
 
