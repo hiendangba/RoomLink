@@ -14,7 +14,6 @@ import RoomCancellationPage from './pages/room/RoomCancellationPage';
 import RoomInfoPage from './pages/room/RoomInfoPage';
 import RenewalManagementPage from './pages/admin/RenewalManagementPage';
 import BillsViewPage from './pages/billing/BillsViewPage';
-import FeesViewPage from './pages/billing/FeesViewPage';
 import PaymentPage from './pages/billing/PaymentPage';
 import StudentPage from './pages/StudentPage';
 import AdminPage from './pages/AdminPage';
@@ -55,7 +54,6 @@ function App() {
             <Route path="/room-cancellation" element={<RoomCancellationPageWrapper />} />
             <Route path="/renewal" element={<RenewalManagementPageWrapper />} />
             <Route path="/bills" element={<BillsViewPageWrapper />} />
-            <Route path="/fees" element={<FeesViewPageWrapper />} />
             <Route path="/payment" element={<PaymentPageWrapper />} />
             <Route path="/student" element={<StudentPage />} />
             <Route path="/admin" element={<AdminPage />} />
@@ -284,8 +282,13 @@ const RenewalManagementPageWrapper = () => {
 
 // Bills View Page Wrapper
 const BillsViewPageWrapper = () => {
+  const { user } = useAuth();
   const handleCancel = () => {
-    window.location.href = '/student';
+    if (user?.role === 'admin') {
+      window.location.href = '/admin';
+    } else {
+      window.location.href = '/student';
+    }
   };
 
   return (
@@ -295,18 +298,6 @@ const BillsViewPageWrapper = () => {
   );
 };
 
-// Fees View Page Wrapper
-const FeesViewPageWrapper = () => {
-  const handleCancel = () => {
-    window.location.href = '/student';
-  };
-
-  return (
-    <FeesViewPage
-      onCancel={handleCancel}
-    />
-  );
-};
 
 // Payment Page Wrapper
 const PaymentPageWrapper = () => {

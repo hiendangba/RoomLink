@@ -54,9 +54,6 @@ const StudentPage = () => {
     window.location.href = '/bills';
   };
 
-  const handleFeesView = () => {
-    window.location.href = '/fees';
-  };
 
   const handleHealthCheckup = () => {
     window.location.href = '/health-checkup';
@@ -114,12 +111,8 @@ const StudentPage = () => {
             </h2>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-4">
               <div className="bg-indigo-50 p-6 rounded-lg cursor-pointer hover:bg-indigo-100 transition-colors" onClick={handleBillsView}>
-                <h3 className="text-lg font-semibold text-indigo-800 mb-2">Hóa đơn điện nước</h3>
-                <p className="text-indigo-600 text-sm">Xem và thanh toán hóa đơn điện nước</p>
-              </div>
-              <div className="bg-yellow-50 p-6 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors" onClick={handleFeesView}>
-                <h3 className="text-lg font-semibold text-yellow-800 mb-2">Hóa đơn lệ phí</h3>
-                <p className="text-yellow-600 text-sm">Xem và thanh toán hóa đơn lệ phí ở KTX</p>
+                <h3 className="text-lg font-semibold text-indigo-800 mb-2">Hóa đơn thanh toán</h3>
+                <p className="text-indigo-600 text-sm">Xem và thanh toán tất cả các giao dịch thanh toán</p>
               </div>
             </div>
           </div>

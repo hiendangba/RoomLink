@@ -11,10 +11,9 @@ export const PAYMENT_TYPES = {
 };
 
 export const PAYMENT_STATUS = {
-  PENDING: 'PENDING',
-  SUCCESS: 'SUCCESS',
-  FAILED: 'FAILED',
-  CANCELLED: 'CANCELLED'
+  PENDING: 'pending',
+  SUCCESS: 'success',
+  FAILED: 'failed'
 };
 
 /**
@@ -68,8 +67,6 @@ export const getPaymentStatusName = (status) => {
       return 'Đã thanh toán';
     case PAYMENT_STATUS.FAILED:
       return 'Thất bại';
-    case PAYMENT_STATUS.CANCELLED:
-      return 'Đã hủy';
     default:
       return 'Không xác định';
   }
@@ -86,8 +83,6 @@ export const getPaymentStatusColor = (status) => {
       return 'bg-yellow-100 text-yellow-800';
     case PAYMENT_STATUS.FAILED:
       return 'bg-red-100 text-red-800';
-    case PAYMENT_STATUS.CANCELLED:
-      return 'bg-gray-100 text-gray-800';
     default:
       return 'bg-gray-100 text-gray-800';
   }

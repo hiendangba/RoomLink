@@ -47,6 +47,10 @@ const AdminPage = () => {
     window.location.href = '/electricity-water-bill-creation';
   };
 
+  const handleBillsView = () => {
+    window.location.href = '/bills';
+  };
+
   const handleRoomTransferApproval = () => {
     window.location.href = '/room-transfer-approval';
   };
@@ -131,6 +135,10 @@ const AdminPage = () => {
               <div className="bg-orange-50 p-6 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors" onClick={handleElectricityWaterBillCreation}>
                 <h3 className="text-lg font-semibold text-orange-800 mb-2">Tạo hóa đơn điện nước</h3>
                 <p className="text-orange-600 text-sm">Nhập tài liệu và tự động tạo hóa đơn điện nước</p>
+              </div>
+              <div className="bg-orange-50 p-6 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors" onClick={handleBillsView}>
+                <h3 className="text-lg font-semibold text-orange-800 mb-2">Hóa đơn thanh toán</h3>
+                <p className="text-orange-600 text-sm">Xem chi tiết tất cả các giao dịch thanh toán</p>
               </div>
             </div>
           </div>

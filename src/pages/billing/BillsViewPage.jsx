@@ -13,6 +13,9 @@ import {
 } from '../../utils/paymentUtils';
 import Button from '../../components/ui/Button';
 import Pagination from '../../components/ui/Pagination';
+import LoadingState from '../../components/ui/LoadingState';
+import PageHeader from '../../components/ui/PageHeader';
+import BaseModal, { ModalBody, ModalFooter } from '../../components/modal/BaseModal';
 
 const BillsView = ({ onSuccess, onCancel }) => {
   const [bills, setBills] = useState([]);
@@ -23,30 +26,21 @@ const BillsView = ({ onSuccess, onCancel }) => {
   const [filter, setFilter] = useState('all'); // all, paid, unpaid
   const [isLoading, setIsLoading] = useState(true);
   const { user, isLoading: authLoading } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const { showError, showSuccess } = useNotification();
   const [processingPaymentId, setProcessingPaymentId] = useState(null);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [selectedBills, setSelectedBills] = useState(new Set());
 
   useEffect(() => {
     const loadBills = async () => {
       try {
         setIsLoading(true);
         console.log('Loading bills for user:', user?.id);
-        
-        // Load room data to get roomNumber
-        let roomNumber = 'N/A';
-        try {
-          const roomResponse = await roomApi.getRoomByUser();
-          console.log('Room response:', roomResponse);
-          if (roomResponse.success && roomResponse.data) {
-            roomNumber = roomResponse.data.roomNumber || 'N/A';
-          }
-        } catch (roomError) {
-          console.error('Error loading room data:', roomError);
-          // Continue without room number
-        }
 
         // Load payments - get all payments for user
         // Payment types: "ROOM", "REFUND", "ELECTRICITY", "WATER", "HEALTHCHECK"
+        // Backend now returns roomNumber in payment response
         console.log('Calling paymentApi.getPaymentByUserId with userId:', user?.id);
         const paymentResponse = await paymentApi.getPaymentByUserId({
           userId: user?.id,
@@ -66,9 +60,12 @@ const BillsView = ({ onSuccess, onCancel }) => {
         console.log('All payments:', allPayments);
 
         // Transform payments to bills
-        const transformedBills = allPayments.map(payment => 
-          transformPaymentToBill(payment, roomNumber, user?.name || '')
-        );
+        // Use roomNumber from payment response if available, otherwise use fallback
+        const transformedBills = allPayments.map(payment => {
+          const roomNumber = payment.roomNumber || 'N/A';
+          const studentName = payment.studentName || user?.name || '';
+          return transformPaymentToBill(payment, roomNumber, studentName);
+        });
 
         // Sort by issueDate descending (newest first)
         transformedBills.sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
@@ -134,6 +131,51 @@ const BillsView = ({ onSuccess, onCancel }) => {
     return new Date(dateString).toLocaleDateString('vi-VN');
   };
 
+  const formatDateFull = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('vi-VN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const handlePrintClick = () => {
+    setShowPrintModal(true);
+    // Select all bills by default
+    setSelectedBills(new Set(filteredBills.map(bill => bill.id)));
+  };
+
+  const handleToggleBill = (billId) => {
+    const newSelected = new Set(selectedBills);
+    if (newSelected.has(billId)) {
+      newSelected.delete(billId);
+    } else {
+      newSelected.add(billId);
+    }
+    setSelectedBills(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedBills.size === filteredBills.length) {
+      setSelectedBills(new Set());
+    } else {
+      setSelectedBills(new Set(filteredBills.map(bill => bill.id)));
+    }
+  };
+
+  const handlePrint = () => {
+    if (selectedBills.size === 0) {
+      showError('Vui lòng chọn ít nhất một hóa đơn để in');
+      return;
+    }
+    setShowPrintModal(false);
+    // Trigger print after a short delay to allow modal to close
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  };
+
 
   const getTotalAmount = () => {
     return bills.reduce((total, bill) => total + bill.amount, 0);
@@ -174,123 +216,133 @@ const BillsView = ({ onSuccess, onCancel }) => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Đang tải giao dịch...</p>
-        </div>
+  const emptyState = (
+    <div className="bg-white rounded-lg shadow-md p-12 text-center">
+      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <span className="text-2xl">📄</span>
       </div>
-    );
-  }
+      <h3 className="text-lg font-medium text-gray-900 mb-2">
+        Hiện tại chưa có giao dịch nào
+      </h3>
+      <p className="text-gray-500">
+        Các giao dịch thanh toán của bạn sẽ được hiển thị tại đây
+      </p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Lịch sử thanh toán</h1>
-          <p className="mt-2 text-gray-600">Xem chi tiết tất cả các giao dịch thanh toán của bạn</p>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-blue-600 font-bold">📊</span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Tổng số giao dịch</p>
-                <p className="text-2xl font-semibold text-gray-900">{bills.length}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                  <span className="text-green-600 font-bold">✅</span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Đã thanh toán</p>
-                <p className="text-2xl font-semibold text-green-600">{formatPrice(getPaidAmount())}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                  <span className="text-red-600 font-bold">⚠️</span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Chưa thanh toán</p>
-                <p className="text-2xl font-semibold text-red-600">{formatPrice(getUnpaidAmount())}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="flex flex-wrap gap-4">
-            <button
-              onClick={() => handleFilterChange('all')}
-              className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                filter === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+        <PageHeader
+          title="Hóa đơn thanh toán"
+          subtitle="Xem chi tiết tất cả các giao dịch thanh toán của bạn"
+          showCancel={true}
+          onCancel={onCancel}
+          cancelText="Quay lại"
+          headerActions={
+            <Button
+              variant="primary"
+              onClick={handlePrintClick}
+              size="small"
             >
-              Tất cả ({bills.length})
-            </button>
-            <button
-              onClick={() => handleFilterChange('paid')}
-              className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                filter === 'paid'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Đã thanh toán ({bills.filter(bill => isPaymentPaid(bill.paymentStatus)).length})
-            </button>
-            <button
-              onClick={() => handleFilterChange('unpaid')}
-              className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                filter === 'unpaid'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Chưa thanh toán ({bills.filter(bill => !isPaymentPaid(bill.paymentStatus)).length})
-            </button>
-          </div>
-        </div>
+              In hóa đơn
+            </Button>
+          }
+        />
 
-        {/* Bills List */}
-        {filteredBills.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">📄</span>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Hiện tại chưa có giao dịch nào
-            </h3>
-            <p className="text-gray-500">
-              Các giao dịch thanh toán của bạn sẽ được hiển thị tại đây
-            </p>
-          </div>
-        ) : (
+        <LoadingState
+          isLoading={isLoading}
+          loadingText="Đang tải giao dịch..."
+          fullScreen={isLoading}
+        >
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 font-bold">📊</span>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Tổng số giao dịch</p>
+                    <p className="text-2xl font-semibold text-gray-900">{bills.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                      <span className="text-green-600 font-bold">✅</span>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Đã thanh toán</p>
+                    <p className="text-2xl font-semibold text-green-600">{formatPrice(getPaidAmount())}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                      <span className="text-red-600 font-bold">⚠️</span>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Chưa thanh toán</p>
+                    <p className="text-2xl font-semibold text-red-600">{formatPrice(getUnpaidAmount())}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+              <div className="flex flex-wrap gap-4">
+                <button
+                  onClick={() => handleFilterChange('all')}
+                  className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                    filter === 'all'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Tất cả ({bills.length})
+                </button>
+                <button
+                  onClick={() => handleFilterChange('paid')}
+                  className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                    filter === 'paid'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Đã thanh toán ({bills.filter(bill => isPaymentPaid(bill.paymentStatus)).length})
+                </button>
+                <button
+                  onClick={() => handleFilterChange('unpaid')}
+                  className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                    filter === 'unpaid'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Chưa thanh toán ({bills.filter(bill => !isPaymentPaid(bill.paymentStatus)).length})
+                </button>
+              </div>
+            </div>
+
+            {/* Bills List */}
+            {filteredBills.length === 0 ? (
+              emptyState
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {paginatedBills.map((bill) => (
                 <div key={bill.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                   <div className="p-6">
@@ -300,7 +352,6 @@ const BillsView = ({ onSuccess, onCancel }) => {
                         <span className="text-2xl mr-2">{getPaymentTypeIcon(bill.paymentType)}</span>
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900">{bill.billTypeName}</h3>
-                          <p className="text-sm text-gray-600">{bill.period || bill.description}</p>
                         </div>
                       </div>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(bill.paymentStatus)}`}>
@@ -314,6 +365,12 @@ const BillsView = ({ onSuccess, onCancel }) => {
                         <span className="text-gray-500">Mã hóa đơn:</span>
                         <span className="font-medium">{bill.id}</span>
                       </div>
+                      {bill.studentName && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Sinh viên:</span>
+                          <span className="font-medium">{bill.studentName}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">Phòng:</span>
                         <span className="font-medium">{bill.roomNumber}</span>
@@ -365,8 +422,8 @@ const BillsView = ({ onSuccess, onCancel }) => {
                       </div>
                     )}
 
-                    {/* Payment Button (if unpaid and not REFUND) */}
-                    {!isPaymentPaid(bill.paymentStatus) && bill.paymentType !== PAYMENT_TYPES.REFUND && (
+                    {/* Payment Button (if unpaid and not REFUND and not admin) */}
+                    {!isPaymentPaid(bill.paymentStatus) && bill.paymentType !== PAYMENT_TYPES.REFUND && !isAdmin && (
                       <div className="mt-4">
                         <Button
                           variant="success"
@@ -389,46 +446,244 @@ const BillsView = ({ onSuccess, onCancel }) => {
               ))}
             </div>
 
-            {/* Pagination */}
-            {filteredBills.length > itemsPerPage && (
-              <div className="mt-8">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={Math.ceil(filteredBills.length / itemsPerPage)}
-                  onPageChange={handlePageChange}
-                  itemsPerPage={itemsPerPage}
-                  totalItems={filteredBills.length}
-                />
-              </div>
+                {/* Pagination */}
+                {filteredBills.length > itemsPerPage && (
+                  <div className="mt-8">
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={Math.ceil(filteredBills.length / itemsPerPage)}
+                      onPageChange={handlePageChange}
+                      itemsPerPage={itemsPerPage}
+                      totalItems={filteredBills.length}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </>
-        )}
+        </LoadingState>
+      </div>
 
-        {/* Action Buttons */}
-        <div className="mt-8 flex justify-between">
+      {/* Print Modal */}
+      <BaseModal
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        title="Chọn hóa đơn cần in"
+        size="large"
+      >
+        <ModalBody>
+          <div className="mb-4">
+            <Button
+              variant="outline"
+              size="small"
+              onClick={handleSelectAll}
+            >
+              {selectedBills.size === filteredBills.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+            </Button>
+            <span className="ml-4 text-sm text-gray-600">
+              Đã chọn: {selectedBills.size} / {filteredBills.length}
+            </span>
+          </div>
+          <div className="max-h-96 overflow-y-auto space-y-2">
+            {filteredBills.map((bill) => (
+              <label
+                key={bill.id}
+                className="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedBills.has(bill.id)}
+                  onChange={() => handleToggleBill(bill.id)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <div className="ml-3 flex-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-lg mr-2">{getPaymentTypeIcon(bill.paymentType)}</span>
+                      <span className="font-medium text-gray-900">{bill.billTypeName}</span>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">{formatPrice(bill.amount)}</span>
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    Mã: {bill.id.substring(0, 8)}... | Phòng: {bill.roomNumber} | 
+                    Ngày: {formatDate(bill.issueDate)} | 
+                    <span className={`ml-2 ${getPaymentStatusColor(bill.paymentStatus)} px-2 py-0.5 rounded-full text-xs`}>
+                      {getPaymentStatusName(bill.paymentStatus)}
+                    </span>
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </ModalBody>
+        <ModalFooter>
           <Button
             variant="outline"
-            onClick={onCancel}
+            onClick={() => setShowPrintModal(false)}
           >
-            Quay lại
+            Hủy
           </Button>
-          <div className="flex space-x-4">
-            <Button
-              variant="primary"
-              onClick={() => window.print()}
-            >
-              In hóa đơn
-            </Button>
-            <Button
-              variant="success"
-              onClick={() => {
-                // Export to PDF functionality would go here
-                alert('Tính năng xuất PDF sẽ được phát triển');
-              }}
-            >
-              Xuất PDF
-            </Button>
-          </div>
+          <Button
+            variant="primary"
+            onClick={handlePrint}
+          >
+            In hóa đơn ({selectedBills.size})
+          </Button>
+        </ModalFooter>
+      </BaseModal>
+
+      {/* Print View */}
+      <div className="hidden print:block print:p-8">
+        <style>{`
+          @media print {
+            body * {
+              visibility: hidden;
+            }
+            .print-content, .print-content * {
+              visibility: visible;
+            }
+            .print-content {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100%;
+            }
+            .no-print {
+              display: none !important;
+            }
+            @page {
+              margin: 1cm;
+            }
+          }
+        `}</style>
+        <div className="print-content">
+          {filteredBills
+            .filter(bill => selectedBills.has(bill.id))
+            .map((bill, index) => (
+              <div key={bill.id} className="mb-8 break-inside-avoid">
+                <div className="border-2 border-gray-800 p-8">
+                  {/* Header */}
+                  <div className="text-center mb-6 border-b-2 border-gray-800 pb-4">
+                    <h1 className="text-3xl font-bold mb-2">HÓA ĐƠN THANH TOÁN</h1>
+                    <p className="text-lg text-gray-700">Ký túc xá - Trường Đại học</p>
+                  </div>
+
+                  {/* Bill Info */}
+                  <div className="grid grid-cols-2 gap-6 mb-6">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Mã hóa đơn:</p>
+                      <p className="font-semibold">{bill.id}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600 mb-1">Loại hóa đơn:</p>
+                      <p className="font-semibold">{bill.billTypeName}</p>
+                    </div>
+                  </div>
+
+                  {/* Customer Info */}
+                  <div className="mb-6 p-4 bg-gray-50 border border-gray-300">
+                    <h3 className="font-semibold mb-3 text-lg">Thông tin khách hàng</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">Họ và tên:</span>
+                        <span className="ml-2 font-medium">{bill.studentName || user?.name || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Phòng:</span>
+                        <span className="ml-2 font-medium">{bill.roomNumber}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bill Details */}
+                  <div className="mb-6">
+                    <h3 className="font-semibold mb-3 text-lg">Chi tiết hóa đơn</h3>
+                    <table className="w-full border-collapse border border-gray-400">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="border border-gray-400 px-4 py-2 text-left">Mô tả</th>
+                          <th className="border border-gray-400 px-4 py-2 text-right">Số tiền</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="border border-gray-400 px-4 py-3">
+                            <div>
+                              <p className="font-medium">{bill.billTypeName}</p>
+                              {bill.period && <p className="text-sm text-gray-600">Kỳ: {bill.period}</p>}
+                              {(bill.paymentType === PAYMENT_TYPES.ELECTRICITY || bill.paymentType === PAYMENT_TYPES.WATER) && (
+                                <p className="text-sm text-gray-600">
+                                  Tiêu thụ: {bill.details.consumption} {bill.paymentType === PAYMENT_TYPES.ELECTRICITY ? 'kWh' : 'm³'}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="border border-gray-400 px-4 py-3 text-right font-semibold">
+                            {formatPrice(bill.amount)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Payment Info */}
+                  <div className="mb-6 grid grid-cols-2 gap-6 text-sm">
+                    <div>
+                      <p className="text-gray-600 mb-1">Ngày phát hành:</p>
+                      <p className="font-medium">{formatDateFull(bill.issueDate)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600 mb-1">Hạn thanh toán:</p>
+                      <p className="font-medium">{formatDateFull(bill.dueDate)}</p>
+                    </div>
+                    {isPaymentPaid(bill.paymentStatus) && bill.paidDate && (
+                      <>
+                        <div>
+                          <p className="text-gray-600 mb-1">Ngày thanh toán:</p>
+                          <p className="font-medium text-green-700">{formatDateFull(bill.paidDate)}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600 mb-1">Phương thức thanh toán:</p>
+                          <p className="font-medium">{bill.paymentMethod || 'Chuyển khoản'}</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Total */}
+                  <div className="border-t-2 border-gray-800 pt-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xl font-semibold">TỔNG CỘNG:</span>
+                      <span className="text-2xl font-bold">{formatPrice(bill.amount)}</span>
+                    </div>
+                  </div>
+
+                  {/* Status */}
+                  <div className="mt-6 pt-4 border-t border-gray-300">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-sm text-gray-600">Trạng thái:</p>
+                        <p className={`font-semibold ${isPaymentPaid(bill.paymentStatus) ? 'text-green-700' : 'text-red-700'}`}>
+                          {getPaymentStatusName(bill.paymentStatus)}
+                        </p>
+                      </div>
+                      <div className="text-right text-sm text-gray-600">
+                        <p>In ngày: {new Date().toLocaleDateString('vi-VN')}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="mt-8 pt-4 border-t border-gray-300 text-center text-sm text-gray-600">
+                    <p>Cảm ơn quý khách đã sử dụng dịch vụ!</p>
+                    <p className="mt-2">Hóa đơn này có giá trị pháp lý và được lưu trữ trong hệ thống</p>
+                  </div>
+                </div>
+                {index < filteredBills.filter(b => selectedBills.has(b.id)).length - 1 && (
+                  <div className="page-break"></div>
+                )}
+              </div>
+            ))}
         </div>
       </div>
     </div>
