@@ -4,7 +4,6 @@ import { useNotification } from '../../contexts/NotificationContext';
 import PageLayout from '../../components/layout/PageLayout';
 import Button from '../../components/ui/Button';
 import LoadingState from '../../components/ui/LoadingState';
-import InfoBox from '../../components/ui/InfoBox';
 import StatusBadge from '../../components/ui/StatusBadge';
 import roomApi from '../../api/roomApi';
 import { renewalApi } from '../../api';
@@ -142,7 +141,9 @@ const RoomInfoPage = ({ onCancel }) => {
         isLoading={loading}
         isEmpty={!loading && !roomData}
         emptyState={
-          <InfoBox type="info" messages={['Bạn chưa có thông tin phòng ở.']} />
+          <div className="text-center text-gray-500 mt-8">
+            Bạn chưa có thông tin phòng ở.
+          </div>
         }
       >
         {roomData ? (

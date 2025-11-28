@@ -56,13 +56,17 @@ export const NotificationProvider = ({ children }) => {
   return (
     <NotificationContext.Provider value={value}>
       {children}
-      {notifications.map(notification => (
-        <Notification
-          key={notification.id}
-          {...notification}
-          onClose={() => removeNotification(notification.id)}
-        />
-      ))}
+      {/* Render notifications in a container with high z-index to ensure they appear above modals */}
+      <div style={{ position: 'fixed', top: '1rem', right: '1rem', zIndex: 9999, pointerEvents: 'none' }}>
+        {notifications.map((notification, index) => (
+          <div key={notification.id} style={{ pointerEvents: 'auto', marginTop: index > 0 ? '0.5rem' : 0 }}>
+            <Notification
+              {...notification}
+              onClose={() => removeNotification(notification.id)}
+            />
+          </div>
+        ))}
+      </div>
     </NotificationContext.Provider>
   );
 };

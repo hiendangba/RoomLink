@@ -8,8 +8,8 @@ const Header = () => {
     window.location.href = '/login';
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     window.location.href = '/';
   };
 

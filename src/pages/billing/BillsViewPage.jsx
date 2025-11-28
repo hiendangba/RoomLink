@@ -36,14 +36,13 @@ const BillsView = ({ onSuccess, onCancel }) => {
     const loadBills = async () => {
       try {
         setIsLoading(true);
-        console.log('Loading bills for user:', user?.id);
 
         // Load payments - get all payments for user
+        // Backend will automatically get userId from token
         // Payment types: "ROOM", "REFUND", "ELECTRICITY", "WATER", "HEALTHCHECK"
         // Backend now returns roomNumber in payment response
-        console.log('Calling paymentApi.getPaymentByUserId with userId:', user?.id);
+        console.log('Calling paymentApi.getPaymentByUserId');
         const paymentResponse = await paymentApi.getPaymentByUserId({
-          userId: user?.id,
           page: 1,
           limit: 1000 // Get all payments
         });
@@ -83,13 +82,13 @@ const BillsView = ({ onSuccess, onCancel }) => {
     };
 
     // Wait for auth to finish loading and user to be available
-    if (!authLoading) {
-      if (user?.id) {
-        loadBills();
-      } else {
-        console.log('No user ID available, skipping loadBills');
-        setIsLoading(false);
-      }
+    // Backend will automatically get userId from token, so we don't need user.id
+    if (!authLoading && user) {
+      loadBills();
+    } else if (!authLoading) {
+      // No user at all
+      console.log('No user available, skipping loadBills');
+      setIsLoading(false);
     }
   }, [user, authLoading]);
 
@@ -252,8 +251,7 @@ const BillsView = ({ onSuccess, onCancel }) => {
 
         <LoadingState
           isLoading={isLoading}
-          loadingText="Đang tải giao dịch..."
-          fullScreen={isLoading}
+          loadingText="Đang tải..."
         >
           <>
             {/* Summary Cards */}

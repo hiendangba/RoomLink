@@ -199,11 +199,10 @@ const RoomTransferContent = ({ onSuccess, onCancel }) => {
           </div>
         ) : !roomData ? (
           <div className="bg-white rounded-lg shadow-md p-6">
-            <InfoBox 
-              type="info" 
-              messages={['Bạn chưa có thông tin phòng ở để chuyển.']} 
-            />
-            <div className="mt-4">
+            <div className="text-center text-gray-500 py-8">
+              Bạn chưa có thông tin phòng ở để chuyển.
+            </div>
+            <div className="mt-4 flex justify-center">
               <Button variant="outline" onClick={onCancel}>
                 Quay lại
               </Button>

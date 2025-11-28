@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { setTokenGetter } from '../api/axiosClient';
+import authApi from '../api/authApi';
 
 const AuthContext = createContext();
 
@@ -45,12 +46,21 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('isLoggedIn', 'true');
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    localStorage.removeItem('isLoggedIn');
-    setTokenGetter(() => null);
+  const logout = async () => {
+    try {
+      // Call API logout để xóa refresh token trên server
+      await authApi.logout();
+    } catch (error) {
+      // Nếu API call fail, vẫn tiếp tục logout ở client
+      console.error('Error calling logout API:', error);
+    } finally {
+      // Luôn xóa dữ liệu ở client
+      setUser(null);
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('isLoggedIn');
+      setTokenGetter(() => null);
+    }
   };
 
   const isAuthenticated = () => {

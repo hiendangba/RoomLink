@@ -459,7 +459,7 @@ const RoomTypeManagementPage = ({ onSuccess, onCancel }) => {
                 loading={formLoading}
                 loadingText={showAddModal ? 'Đang thêm...' : 'Đang cập nhật...'}
               >
-                {showAddModal ? 'Thêm mới' : 'Lưu thay đổi'}
+                {showAddModal ? 'Thêm mới' : 'Cập nhật'}
               </Button>
             </div>
           </ModalBody>
@@ -505,27 +505,7 @@ const RoomTypeManagementPage = ({ onSuccess, onCancel }) => {
               </div>
             </div>
             
-            <div className="flex justify-end space-x-2 pt-4 border-t border-gray-200">
-              <Button 
-                onClick={() => {
-                  setShowDetailModal(false);
-                  handleEdit(selectedRoomType);
-                }} 
-                variant="primary"
-                size="small"
-              >
-                Chỉnh sửa
-              </Button>
-              <Button 
-                onClick={() => {
-                  setShowDetailModal(false);
-                  handleDelete(selectedRoomType);
-                }} 
-                variant="danger"
-                size="small"
-              >
-                Xóa
-              </Button>
+            <div className="flex justify-end pt-4 border-t border-gray-200">
               <Button onClick={() => setShowDetailModal(false)} variant="outline">
                 Đóng
               </Button>

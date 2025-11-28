@@ -8,6 +8,7 @@ import InfoBox from '../../components/ui/InfoBox';
 import PageLayout from '../../components/layout/PageLayout';
 import ImageEditorModal from '../../components/modal/ImageEditorModal';
 import numberPlateApi from '../../api/numberPlateApi';
+import { hasPlate } from '../../services/plateDetectionService';
 
 const VehicleRegistrationPage = ({ onSuccess, onCancel }) => {
   const { user } = useAuth();
@@ -17,6 +18,8 @@ const VehicleRegistrationPage = ({ onSuccess, onCancel }) => {
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [editingImage, setEditingImage] = useState(null); // { type: 'numberPlate', src: string }
+  const [detectingPlate, setDetectingPlate] = useState(false);
+  const [plateDetected, setPlateDetected] = useState(null); // null: chưa kiểm tra, true: có biển số, false: không có
   const fileInputRef = useRef(null);
 
   // Store original file separately to preserve quality when re-editing
@@ -57,7 +60,7 @@ const VehicleRegistrationPage = ({ onSuccess, onCancel }) => {
     setFormData(prev => ({ ...prev, [name]: value })); 
   };
 
-  const handleFileChange = (file) => {
+  const handleFileChange = async (file) => {
     if (!file) {
       return;
     }
@@ -72,24 +75,35 @@ const VehicleRegistrationPage = ({ onSuccess, onCancel }) => {
       return;
     }
 
-    // Clean up previous temporary file and preview URL if exists
+    try {
+      setDetectingPlate(true);
+      const hasPlateDetected = await hasPlate(file, 0.25);
+      
+      if (!hasPlateDetected) {
+        showError('Không phát hiện biển số xe trong ảnh. Vui lòng chọn ảnh khác.');
+        setDetectingPlate(false);
+        return;
+      }
+      
+      showSuccess('Đã phát hiện biển số xe!');
+    } catch (error) {
+      console.error('Error detecting plate:', error);
+      showError('Không thể kiểm tra biển số. Vui lòng thử lại.');
+      setDetectingPlate(false);
+      return;
+    } finally {
+      setDetectingPlate(false);
+    }
     if (tempPreviewUrlRef.current) {
       URL.revokeObjectURL(tempPreviewUrlRef.current);
       tempPreviewUrlRef.current = null;
     }
     tempFileRef.current = null;
 
-    // Reset edit state for new image
     editStateRef.current = { zoom: 100, rotate: 0, position: { x: 0, y: 0 } };
-
-    // Store file temporarily (not in state yet)
     tempFileRef.current = file;
-
-    // Create temporary preview URL for modal display only
     const tempPreviewUrl = URL.createObjectURL(file);
     tempPreviewUrlRef.current = tempPreviewUrl;
-
-    // Open image editor modal with temporary preview URL
     setEditingImage({
       type: 'numberPlate',
       src: tempPreviewUrl,
@@ -100,61 +114,58 @@ const VehicleRegistrationPage = ({ onSuccess, onCancel }) => {
 
   const handleImageEditConfirm = async (editedBlob, qrScanArea, editState = null) => {
     if (editingImage && editedBlob) {
-      const editedUrl = URL.createObjectURL(editedBlob);
+      try {
+        const editedUrl = URL.createObjectURL(editedBlob);
 
-      // Clean up temporary preview URL if this was a new file selection
-      if (editingImage.isNewFile && tempPreviewUrlRef.current) {
-        URL.revokeObjectURL(tempPreviewUrlRef.current);
-        tempPreviewUrlRef.current = null;
+        if (editingImage.isNewFile && tempPreviewUrlRef.current) {
+          URL.revokeObjectURL(tempPreviewUrlRef.current);
+          tempPreviewUrlRef.current = null;
+        }
+
+        if (!editingImage.isNewFile && tempEditPreviewUrlRef.current) {
+          URL.revokeObjectURL(tempEditPreviewUrlRef.current);
+          tempEditPreviewUrlRef.current = null;
+        }
+
+        if (!editingImage.isNewFile && previewUrlRef.current) {
+          URL.revokeObjectURL(previewUrlRef.current);
+        }
+
+        const originalFile = editingImage.isNewFile 
+          ? tempFileRef.current 
+          : originalFileRef.current;
+        const fileName = originalFile ? originalFile.name.replace(/\.[^/.]+$/, '.png') : 'edited_numberPlate.png';
+
+        const editedFile = new File([editedBlob], fileName, {
+          type: 'image/png',
+          lastModified: Date.now()
+        });
+
+        previewUrlRef.current = editedUrl;
+
+        if (editingImage.isNewFile && tempFileRef.current) {
+          originalFileRef.current = tempFileRef.current;
+          tempFileRef.current = null;
+        }
+
+        if (editState) {
+          editStateRef.current = {
+            zoom: editState.zoom || 100,
+            rotate: editState.rotate || 0,
+            position: editState.position || { x: 0, y: 0 }
+          };
+        }
+
+        setLicensePlateImage(editedFile);
+        setImagePreview(editedUrl);
+        setPlateDetected(true);
+        setEditingImage(null);
+      } catch (error) {
+        console.error('Error detecting plate:', error);
+        showError('Không thể kiểm tra biển số. Vui lòng thử lại.');
+      } finally {
+        setDetectingPlate(false);
       }
-
-      // Clean up temporary edit preview URL if re-editing existing image
-      if (!editingImage.isNewFile && tempEditPreviewUrlRef.current) {
-        URL.revokeObjectURL(tempEditPreviewUrlRef.current);
-        tempEditPreviewUrlRef.current = null;
-      }
-
-      // Revoke old preview URL (if editing existing image)
-      if (!editingImage.isNewFile && previewUrlRef.current) {
-        URL.revokeObjectURL(previewUrlRef.current);
-      }
-
-      // Get original file name or generate new one
-      const originalFile = editingImage.isNewFile 
-        ? tempFileRef.current 
-        : (originalFileRef.current || licensePlateImage);
-      const fileName = originalFile ? originalFile.name.replace(/\.[^/.]+$/, '.png') : 'edited_numberPlate.png';
-
-      // Create new file from blob
-      const editedFile = new File([editedBlob], fileName, {
-        type: 'image/png',
-        lastModified: Date.now()
-      });
-
-      // Update ref
-      previewUrlRef.current = editedUrl;
-
-      // For new file selection, store original file in originalFileRef
-      if (editingImage.isNewFile && tempFileRef.current) {
-        originalFileRef.current = tempFileRef.current;
-        tempFileRef.current = null;
-      }
-
-      // Save edit state for next edit session
-      if (editState) {
-        editStateRef.current = {
-          zoom: editState.zoom || 100,
-          rotate: editState.rotate || 0,
-          position: editState.position || { x: 0, y: 0 }
-        };
-      }
-
-      // Update files and previews state
-      setLicensePlateImage(editedFile);
-      setImagePreview(editedUrl);
-
-      // Close modal after state update
-      setEditingImage(null);
     }
   };
 
@@ -284,7 +295,6 @@ const VehicleRegistrationPage = ({ onSuccess, onCancel }) => {
             onChange={handleInputChange}
             placeholder="VD: 12A-12345, 12-AB12345, 12-AB1234"
             required
-            helperText="Biển số xe chỉ được chứa chữ cái, số, khoảng trắng, dấu gạch ngang hoặc dấu chấm (6-15 ký tự)"
           />
 
           <div>
@@ -317,9 +327,11 @@ const VehicleRegistrationPage = ({ onSuccess, onCancel }) => {
                             URL.revokeObjectURL(tempEditPreviewUrlRef.current);
                           }
                           
-                          // Always use original file when re-editing to preserve quality
-                          const originalFile = originalFileRef.current || licensePlateImage;
-                          if (!originalFile) return;
+                          const originalFile = originalFileRef.current;
+                          if (!originalFile) {
+                            showError('Không tìm thấy ảnh gốc. Vui lòng chọn ảnh mới.');
+                            return;
+                          }
                           
                           // Create temporary preview URL from original file for editing
                           const tempEditPreviewUrl = URL.createObjectURL(originalFile);
@@ -337,28 +349,18 @@ const VehicleRegistrationPage = ({ onSuccess, onCancel }) => {
                       >
                         Chỉnh sửa
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="small"
-                        onClick={removeImage}
-                      >
-                        Xóa
-                      </Button>
                     </div>
                   </div>
-                  <div className="relative border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
+                  <div className="mt-3 border rounded-lg overflow-hidden bg-gray-50">
                     <img
                       src={imagePreview}
-                      alt="Preview biển số xe"
+                      alt="Biển số xe đã chỉnh sửa"
                       className="w-full h-auto max-h-64 object-contain"
                     />
                   </div>
                 </div>
               )}
             </div>
-            <p className="text-sm text-gray-500 mt-1">
-              Tải lên hình ảnh rõ nét của biển số xe (tối đa 5MB)
-            </p>
           </div>
 
           <InfoBox

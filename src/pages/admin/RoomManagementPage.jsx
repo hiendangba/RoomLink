@@ -20,6 +20,11 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(8);
   const [totalItems, setTotalItems] = useState(0);
+  const [statistics, setStatistics] = useState({
+    total: 0,
+    available: 0,
+    occupied: 0
+  });
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterBuildingId, setFilterBuildingId] = useState('All');
   const [filterFloorId, setFilterFloorId] = useState('All');
@@ -90,6 +95,44 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
     fetchFloors();
   }, [formData.buildingId]);
 
+  // Fetch statistics
+  const fetchStatistics = async () => {
+    try {
+      const baseParams = {
+        page: 1,
+        limit: 1,
+        buildingId: filterBuildingId || 'All',
+      };
+      
+      if (filterBuildingId === 'All') {
+        if (filterFloorNumber && filterFloorNumber !== 'All') {
+          baseParams.floorNumber = filterFloorNumber;
+        }
+      } else {
+        if (filterFloorId && filterFloorId !== 'All') {
+          baseParams.floorId = filterFloorId;
+        }
+      }
+
+      const [totalResponse, availableResponse, occupiedResponse] = await Promise.all([
+        roomApi.getRoomForAdmin({ ...baseParams, status: 'All' }),
+        roomApi.getRoomForAdmin({ ...baseParams, status: 'Available' }),
+        roomApi.getRoomForAdmin({ ...baseParams, status: 'Full' })
+      ]);
+
+      console.log('Statistics responses:', { totalResponse, availableResponse, occupiedResponse });
+
+      setStatistics({
+        total: totalResponse?.totalItems ?? 0,
+        available: availableResponse?.totalItems ?? 0,
+        occupied: occupiedResponse?.totalItems ?? 0
+      });
+    } catch (err) {
+      console.error('Error fetching statistics:', err);
+      setStatistics({ total: 0, available: 0, occupied: 0 });
+    }
+  };
+
   // Fetch rooms
   const fetchRooms = async (page = 1) => {
     try {
@@ -102,12 +145,17 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
       };
       // When "All buildings" is selected, use floorNumber instead of floorId
       if (filterBuildingId === 'All') {
-        params.floorNumber = filterFloorNumber || 'All';
+        if (filterFloorNumber && filterFloorNumber !== 'All') {
+          params.floorNumber = filterFloorNumber;
+        }
       } else {
         // When specific building is selected, use floorId
-        params.floorId = filterFloorId || 'All';
+        if (filterFloorId && filterFloorId !== 'All') {
+          params.floorId = filterFloorId;
+        }
       }
       const response = await roomApi.getRoomForAdmin(params);
+      console.log('Fetch rooms response:', response);
       if (response.success && response.data) {
         // Map backend data to frontend format
         const mappedRooms = response.data.map(room => {
@@ -138,8 +186,8 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
           };
         });
         setRooms(mappedRooms);
-        if (response.metadata && response.metadata.totalItems !== undefined) {
-          setTotalItems(response.metadata.totalItems);
+        if (response.totalItems !== undefined) {
+          setTotalItems(response.totalItems);
         }
       }
     } catch (err) {
@@ -151,6 +199,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
 
   useEffect(() => {
     fetchRooms(currentPage);
+    fetchStatistics();
   }, [currentPage, filterStatus, filterBuildingId, filterFloorId, filterFloorNumber]);
 
   // Reset to page 1 when filter changes
@@ -208,10 +257,6 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
 
   const handleSaveRoom = async (e) => {
     e.preventDefault();
-    if (!formData.roomNumber.trim() || !formData.buildingId || !formData.floorId || !formData.roomTypeId || !formData.capacity || !formData.monthlyFee) {
-      showError('Vui lòng điền đầy đủ thông tin bắt buộc');
-      return;
-    }
 
     try {
       setFormLoading(true);
@@ -220,7 +265,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
         floorId: formData.floorId,
         roomTypeId: formData.roomTypeId,
         capacity: parseInt(formData.capacity),
-        monthlyFee: parseInt(formData.monthlyFee),
+        monthlyFee: Math.floor(parseFloat(formData.monthlyFee) || 0),
       };
 
       const res = await roomApi.createRoom(payload);
@@ -236,6 +281,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
           monthlyFee: '' 
         });
         fetchRooms(currentPage);
+        fetchStatistics();
       }
     } catch (err) {
       showError(err?.response?.data?.message || "Lỗi khi tạo phòng");
@@ -244,7 +290,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
     }
   };
 
-  const handleEditRoom = (room) => {
+  const handleEditRoom = async (room) => {
     setSelectedRoom(room);
     // Find building ID from room data
     const building = buildings.find(b => {
@@ -252,13 +298,32 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
       return allFloors.some(f => f.id === room.floorId && f.buildingId === b.id);
     });
     
+    const buildingId = building?.id || '';
+    
+    // Load floors and room types for this building
+    try {
+      const [floorsRes, roomTypesRes] = await Promise.all([
+        buildingId ? floorApi.getFloor({ buildingId }) : Promise.resolve({ success: false, data: [] }),
+        buildingId ? roomApi.getRoomTypeForAdmin(buildingId) : Promise.resolve({ success: false, data: [] })
+      ]);
+      
+      if (floorsRes.success) {
+        setFloors(floorsRes.data);
+      }
+      if (roomTypesRes.success) {
+        setRoomTypes(roomTypesRes.data);
+      }
+    } catch (err) {
+      console.error('Error loading floors/room types:', err);
+    }
+    
     setFormData({
       roomNumber: room.roomNumber,
-      buildingId: building?.id || '',
+      buildingId: buildingId,
       floorId: room.floorId,
       roomTypeId: room.roomTypeId,
       capacity: room.capacity.toString(),
-      monthlyFee: room.monthlyFee.toString()
+      monthlyFee: Math.floor(room.monthlyFee || 0).toString()
     });
     setIsEditMode(true);
     setShowEditModal(true);
@@ -266,10 +331,6 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
 
   const handleUpdateRoom = async (e) => {
     e.preventDefault();
-    if (!selectedRoom || !formData.roomNumber.trim() || !formData.roomTypeId || !formData.capacity || !formData.monthlyFee) {
-      showError('Vui lòng điền đầy đủ thông tin bắt buộc');
-      return;
-    }
 
     try {
       setFormLoading(true);
@@ -277,7 +338,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
         roomNumber: formData.roomNumber.trim(),
         roomTypeId: formData.roomTypeId,
         capacity: parseInt(formData.capacity),
-        price: parseFloat(formData.monthlyFee),
+        price: Math.floor(parseFloat(formData.monthlyFee) || 0),
       };
 
       const res = await roomApi.updateRoom(selectedRoom.id, payload);
@@ -294,6 +355,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
           monthlyFee: '' 
         });
         fetchRooms(currentPage);
+        fetchStatistics();
       }
     } catch (err) {
       showError(err?.response?.data?.message || "Lỗi khi cập nhật phòng");
@@ -312,6 +374,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
         showSuccess('Xóa phòng thành công!');
         setShowDeleteModal(false);
         fetchRooms(currentPage);
+        fetchStatistics();
       }
     } catch (err) {
       showError(err?.response?.data?.message || "Lỗi khi xóa phòng");
@@ -400,7 +463,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-blue-600">Tổng số phòng</p>
-              <p className="text-2xl font-bold text-blue-900">{totalItems}</p>
+              <p className="text-2xl font-bold text-blue-900">{statistics.total}</p>
             </div>
           </div>
         </div>
@@ -413,9 +476,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-green-600">Phòng trống</p>
-              <p className="text-2xl font-bold text-green-900">
-                {rooms.filter(r => r.status === 'available').length}
-              </p>
+              <p className="text-2xl font-bold text-green-900">{statistics.available}</p>
             </div>
           </div>
         </div>
@@ -428,9 +489,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-blue-600">Phòng đầy</p>
-              <p className="text-2xl font-bold text-blue-900">
-                {rooms.filter(r => r.status === 'occupied').length}
-              </p>
+              <p className="text-2xl font-bold text-blue-900">{statistics.occupied}</p>
             </div>
           </div>
         </div>
@@ -656,6 +715,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
                   type="number"
                   value={formData.capacity}
                   onChange={(e) => setFormData({...formData, capacity: e.target.value})}
+                  placeholder="VD: 10"
                   min="1"
                   max="10"
                   required
@@ -665,9 +725,16 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
                   name="monthlyFee"
                   type="number"
                   value={formData.monthlyFee}
-                  onChange={(e) => setFormData({...formData, monthlyFee: e.target.value})}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const numValue = parseFloat(value);
+                    if (value === '' || (!isNaN(numValue) && numValue >= 0)) {
+                      setFormData({...formData, monthlyFee: value === '' ? '' : Math.floor(numValue).toString()});
+                    }
+                  }}
+                  placeholder="2000000"
                   min="0"
-                  step="10000"
+                  step="1"
                   required
                 />
               </div>
@@ -862,6 +929,7 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
                   type="number"
                   value={formData.capacity}
                   onChange={(e) => setFormData({...formData, capacity: e.target.value})}
+                  placeholder="VD: 10"
                   min="1"
                   max="10"
                   required
@@ -871,9 +939,16 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
                   name="monthlyFee"
                   type="number"
                   value={formData.monthlyFee}
-                  onChange={(e) => setFormData({...formData, monthlyFee: e.target.value})}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const numValue = parseFloat(value);
+                    if (value === '' || (!isNaN(numValue) && numValue >= 0)) {
+                      setFormData({...formData, monthlyFee: value === '' ? '' : Math.floor(numValue).toString()});
+                    }
+                  }}
+                  placeholder="2000000"
                   min="0"
-                  step="10000"
+                  step="1"
                   required
                 />
               </div>
@@ -915,27 +990,30 @@ const RoomManagementPage = ({ onSuccess, onCancel }) => {
         <BaseModal
           isOpen={showDeleteModal}
           onClose={() => setShowDeleteModal(false)}
-          title="Xác nhận xóa phòng"
+          title="Xác nhận xóa"
           size="small"
+          closeOnOverlayClick={true}
+          zIndex={60}
         >
           <ModalBody>
-            <div className="mb-6">
-              <p className="text-gray-600 mb-4">
-                Bạn có chắc chắn muốn xóa phòng <strong>{selectedRoom.roomNumber}</strong> không?
-              </p>
-            </div>
-            <div className="flex items-center justify-end space-x-4">
-              <Button onClick={() => setShowDeleteModal(false)} variant="outline">
+            <p className="text-gray-600 mb-6">
+              Bạn có chắc chắn muốn xóa phòng "{selectedRoom.roomNumber}"?
+            </p>
+            <div className="flex items-center justify-end space-x-4 pt-4 border-t">
+              <Button 
+                onClick={() => setShowDeleteModal(false)} 
+                variant="outline"
+                disabled={formLoading}
+              >
                 Hủy
               </Button>
               <Button
                 onClick={handleDeleteConfirm}
-                disabled={formLoading}
                 variant="danger"
                 loading={formLoading}
                 loadingText="Đang xóa..."
               >
-                Xóa phòng
+                Xóa
               </Button>
             </div>
           </ModalBody>

@@ -105,35 +105,29 @@ const ChangePasswordPageWrapper = () => {
   const handleSuccess = async () => {
     console.log('Password changed successfully');
     
-    // Reload user data to get updated status from backend
-    try {
-      const userResponse = await userApi.getUser();
-      const userData = userResponse.data;
+    const token = localStorage.getItem('token');
+    
+    if (token && user) {
+      const updatedUser = {
+        ...user,
+        status: 'APPROVED_CHANGED'
+      };
       
-      // Get token from localStorage
-      const token = localStorage.getItem('token');
+      login(updatedUser, token);
       
-      // Update user in AuthContext with new status
-      if (token && userData) {
-        login(userData, token);
-      }
-      
-      // After password change, status should be APPROVED_CHANGED
-      // If user was changing password for the first time, redirect to home page
-      const wasFirstTimeChange = user && user.status === 'APPROVED_NOT_CHANGED';
+      const wasFirstTimeChange = user.status === 'APPROVED_NOT_CHANGED';
       
       if (wasFirstTimeChange) {
         window.location.href = '/';
       } else {
         // Otherwise, redirect based on user role
-        if (userData && userData.role === 'admin') {
+        if (updatedUser.role === 'admin') {
           window.location.href = '/admin';
         } else {
           window.location.href = '/student';
         }
       }
-    } catch (error) {
-      console.error('Error reloading user data:', error);
+    } else {
       // Fallback: redirect based on current user data
       if (user && user.status === 'APPROVED_NOT_CHANGED') {
         window.location.href = '/';
@@ -147,10 +141,10 @@ const ChangePasswordPageWrapper = () => {
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     // If user hasn't changed password for the first time, logout and redirect to login
     if (user && user.status === 'APPROVED_NOT_CHANGED') {
-      logout();
+      await logout();
       window.location.href = '/login';
     } else {
       // Otherwise, redirect based on user role

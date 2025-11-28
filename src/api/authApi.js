@@ -56,6 +56,12 @@ const authApi = {
       }
     });
   },
+
+  logout() {
+    return axiosClient.post("/auth/logout", {}, {
+      withCredentials: true
+    });
+  },
 };
 
 export default authApi;
