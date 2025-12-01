@@ -32,7 +32,7 @@ export const getPaymentTypeName = (type) => {
     case PAYMENT_TYPES.HEALTHCHECK:
       return 'Khám sức khỏe';
     default:
-      return 'Thanh toán khác';
+      return 'Hoàn trả';
   }
 };
 
