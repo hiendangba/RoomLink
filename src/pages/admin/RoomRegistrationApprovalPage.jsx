@@ -480,7 +480,7 @@ const RoomRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
                     MSSV
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Vị trí phòng
+                    Phòng
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Thời hạn thuê
@@ -521,7 +521,7 @@ const RoomRegistrationApprovalPage = ({ onSuccess, onCancel }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">Vị trí {request.slotNumber}</div>
+                        <div className="text-sm font-medium text-gray-900">{request.roomNumber}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
